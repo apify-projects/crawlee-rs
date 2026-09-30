@@ -74,10 +74,10 @@ duplicates). Concurrency is pinned (min = max) in both, and storage is in memory
 | Crate | Crawlee for JS counterpart | Contents |
 |---|---|---|
 | `crawlee` | `crawlee` | Re-exports everything below |
-| `crawlee-utils` | `@crawlee/utils`, `@apify/utilities` | `normalize_url`, enqueue strategies, public-suffix domains, glob/regex URL filters, streaming link extraction (`lol_html`), HTML attribute entity decoding, charset prescan |
-| `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `EventManager`, `RecoverableState`, system info (cgroup-aware), `Services` |
+| `crawlee-utils` | `@crawlee/utils`, `@apify/utilities` | `normalize_url`, enqueue strategies, public-suffix domains, glob/regex URL filters, streaming link extraction (`lol_html`), HTML attribute entity decoding, charset prescan, robots.txt and sitemap parsing, `Retry-After` |
+| `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `RequestLoader` / `RequestManagerTandem`, `EventManager`, `RecoverableState`, system info (cgroup-aware), `Services` |
 | `crawlee-http-client` | `@crawlee/http-client` | The `HttpClient` / `Transport` traits, the shared redirect and cookie logic, a reqwest transport |
-| `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline, autoscaling (`ConcurrencySystem`, `SystemStatus`, load signals) |
+| `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline, autoscaling (`ConcurrencySystem`, `SystemStatus`, load signals), robots.txt, `Sitemap` / `SitemapRequestLoader`, `ThrottlingRequestManager` |
 | `crawlee-http` | `@crawlee/http`, `@crawlee/cheerio` | `HttpCrawler` (typed JSON via serde), `HtmlCrawler` (lazy DOM, streaming `enqueue_links`), body decoding |
 | `crawlee-impit` ([integrations/](integrations/crawlee-impit)) | `@crawlee/impit-client` | A transport with browser TLS and HTTP/2 fingerprints. It is kept outside the workspace because impit needs patched dependencies; see its [README](integrations/crawlee-impit/README.md) |
 
@@ -121,6 +121,24 @@ keys and in the record formats of Crawlee for JS:
 | `CRAWLEE_STATE` / `CRAWLEE_STATE_{id}` | `ctx.use_state(default)` / `crawler.use_state(default)` |
 
 `RecoverableState` is the building block for all three, and is public for custom state.
+
+## Politeness: robots.txt, rate limits and sitemaps
+
+- **robots.txt.** `.respect_robots_txt(true)` (or `.robots_txt_user_agent("MyBot")`) skips
+  requests that robots.txt disallows. They are checked when enqueued and before they are fetched.
+  robots.txt is cached per origin; the matching is a port of `robots-parser`.
+- **Rate limits.** `ThrottlingRequestManager` keeps a request queue per domain. When a domain
+  answers 429, its requests are held back: for the `Retry-After` delay, or with an exponential
+  backoff of 2 s, 4 s, … up to 60 s.
+  - The request is retried without spending a retry or blaming its session.
+  - robots.txt `Crawl-delay` is honoured as a minimum interval between requests to the domain.
+  - `.same_domain_delay(d)` sets such an interval for every site, and adds a throttling manager
+    when the crawler has none.
+- **Sitemaps.** `Sitemap::load` fetches sitemaps, nested and gzipped ones included, and returns
+  their pages.
+  - `SitemapRequestLoader` crawls them in the background. Put it in front of a request queue with
+    `RequestManagerTandem`.
+  - Its progress is saved, so a resumed crawl continues where it stopped.
 
 ## Design notes
 
@@ -167,7 +185,7 @@ The goal was to keep Crawlee v4's architecture and change it only where Rust nee
 `conformance/oracle` runs Crawlee for JS **from its sources** as an oracle and writes golden files
 to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them against the Rust code.
 
-- **Currently all 284 cases match**, with an empty allow-list. The cases cover:
+- **Currently all 755 checks match**, with an empty allow-list. The cases cover:
   - `normalizeUrl` and unique keys;
   - request ids;
   - the `Request` JSON, including `userData.__crawlee`;
@@ -175,7 +193,8 @@ to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them ag
   - enqueue strategies;
   - link extraction as `CheerioCrawler` does it;
   - the charset prescan;
-  - KVS JSON formatting.
+  - KVS JSON formatting;
+  - robots.txt matching (`robots-parser`), sitemap XML parsing and `Retry-After`.
 - **Deliberate differences** are listed in
   [conformance/allowed-differences.md](conformance/allowed-differences.md). A golden-file mismatch
   that is not on that list fails CI.
@@ -184,13 +203,15 @@ to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them ag
 
 These are planned in this order, following `docs/plan.md`:
 
-1. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
-   `robots.txt`.
-2. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
-   `skip_navigation` in `HttpCrawler`.
-3. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
-   implementations against the fixture server, comparing their outputs.
-4. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
+1. **Remaining request sources and options:**
+   - `RequestList`;
+   - `extend_context`, `extend_timeout`, `skip_navigation` in `HttpCrawler`;
+   - the `stalled` readiness state of throttling;
+   - CSV export.
+2. **Side-by-side crawl comparison** (level 3 of the conformance plan): the same crawl run by
+   both implementations against the fixture server, comparing their outputs. Today the two are
+   compared function by function (golden files) and by benchmark.
+3. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
 
 ## Development
 

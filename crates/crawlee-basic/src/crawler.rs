@@ -12,8 +12,8 @@ use tracing::Instrument as _;
 
 use crawlee_core::storage::backend::BatchAddRequestsResult;
 use crawlee_core::{
-    Dataset, Event, EventKind, KeyValueStore, RecoverableState, Request, RequestManager, SerdeState, Services,
-    StatusLevel, StatusMessage, StorageIdentifier,
+    Dataset, Event, EventKind, KeyValueStore, PacingScope, PacingSignal, RecoverableState, Request, RequestManager,
+    SerdeState, Services, StatusLevel, StatusMessage, StorageIdentifier,
 };
 use crawlee_http_client::HttpClient;
 use serde::Serialize;
@@ -24,8 +24,10 @@ use crate::context::{BasicContext, CrawlerShared, CrawlingContext, InFlight, Req
 use crate::errors::{ErrorKind, HandlerPanic, RequestHandlerTimeout, error_message};
 use crate::handler::{ErrorHandler, Identity, Middleware, RequestHandler};
 use crate::proxy::ProxySource;
+use crate::robots::RobotsCache;
 use crate::session::{Session, SessionPool, SessionPoolOptions};
 use crate::statistics::{FinalStatistics, Statistics};
+use crate::throttling::{ThrottleBy, ThrottledDomains, ThrottlingOptions, ThrottlingRequestManager};
 
 /// How long the task loop waits for new requests before checking the queue again.
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -59,6 +61,12 @@ pub struct CrawlerOptions {
     pub id: Option<String>,
     /// How often the status message is updated (`statusMessageLoggingInterval`).
     pub status_message_interval: Duration,
+    /// Skip what robots.txt disallows for this user agent (`respectRobotsTxtFile`); `None` to
+    /// ignore robots.txt. A `Crawl-delay` is honoured when the request manager paces domains.
+    pub respect_robots_txt: Option<String>,
+    /// Minimum time between two requests to one site, subdomains included
+    /// (`sameDomainDelaySecs`). Zero for none.
+    pub same_domain_delay: Duration,
 }
 
 impl Default for CrawlerOptions {
@@ -73,6 +81,8 @@ impl Default for CrawlerOptions {
             session_pool: SessionPoolOptions::default(),
             id: None,
             status_message_interval: Duration::from_secs(10),
+            respect_robots_txt: None,
+            same_domain_delay: Duration::ZERO,
         }
     }
 }
@@ -261,6 +271,25 @@ where
         self
     }
 
+    /// Skip what robots.txt disallows for any user agent (`*`); see
+    /// [`CrawlerOptions::respect_robots_txt`].
+    pub fn respect_robots_txt(mut self, respect: bool) -> Self {
+        self.options.respect_robots_txt = respect.then(|| "*".to_owned());
+        self
+    }
+
+    /// Like [`respect_robots_txt`](Self::respect_robots_txt), with the rules of this user agent.
+    pub fn robots_txt_user_agent(mut self, user_agent: impl Into<String>) -> Self {
+        self.options.respect_robots_txt = Some(user_agent.into());
+        self
+    }
+
+    /// See [`CrawlerOptions::same_domain_delay`].
+    pub fn same_domain_delay(mut self, delay: Duration) -> Self {
+        self.options.same_domain_delay = delay;
+        self
+    }
+
     /// See [`CrawlerOptions::id`].
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.options.id = Some(id.into());
@@ -346,10 +375,28 @@ where
             .get_or_try_init(|| async {
                 // Before anything is opened, so the storages this crawler uses start empty.
                 inner.services.purge_on_start().await?;
-                let request_manager: Arc<dyn RequestManager> = match &inner.request_manager {
+                let mut request_manager: Arc<dyn RequestManager> = match &inner.request_manager {
                     Some(manager) => manager.clone(),
                     None => Arc::new(inner.services.open_request_queue(&StorageIdentifier::Default).await?),
                 };
+                let delay = inner.options.same_domain_delay;
+                if !delay.is_zero() {
+                    // A manager that already paces every domain takes the delay; otherwise one is added.
+                    let signal = PacingSignal::MinIntervalEverywhere {
+                        interval: delay,
+                        scope: Some(PacingScope::RegistrableDomain),
+                    };
+                    if !request_manager.record_pacing_signal(&signal) {
+                        let options = ThrottlingOptions {
+                            domains: ThrottledDomains::All,
+                            throttle_by: ThrottleBy::RegistrableDomain,
+                            min_crawl_delay: delay,
+                            ..ThrottlingOptions::default()
+                        };
+                        request_manager =
+                            Arc::new(ThrottlingRequestManager::new(options, &inner.services, request_manager));
+                    }
+                }
                 let dataset = inner.services.open_dataset(&StorageIdentifier::Default).await?;
                 let key_value_store = inner.services.open_key_value_store(&StorageIdentifier::Default).await?;
                 request_manager.set_expected_request_processing_time(inner.options.request_handler_timeout * 2).await?;
@@ -372,6 +419,8 @@ where
                     resumed: Notify::new(),
                     in_flight: AtomicUsize::new(0),
                     drained: Notify::new(),
+                    robots: inner.options.respect_robots_txt.clone().map(RobotsCache::new),
+                    warned: Default::default(),
                 }))
             })
             .await
@@ -747,7 +796,18 @@ where
     }
 
     /// Processes one request. Returns `Err` only for errors that must stop the crawl.
-    async fn process_request(&self, shared: Arc<CrawlerShared>, request: Request) -> anyhow::Result<()> {
+    async fn process_request(&self, shared: Arc<CrawlerShared>, mut request: Request) -> anyhow::Result<()> {
+        if !shared.is_allowed_by_robots(&request.url).await {
+            tracing::warn!(
+                "Skipping request {} ({}) because it is disallowed based on robots.txt",
+                request.url,
+                request.id.as_deref().unwrap_or_default()
+            );
+            request.no_retry = true;
+            shared.request_manager.mark_request_as_handled(&mut request).await?;
+            shared.statistics.record_skipped();
+            return Ok(());
+        }
         let started = Instant::now();
         let session = self.session_for(&request);
         let scope = RequestScope::new(shared.clone(), Some(session.clone()));

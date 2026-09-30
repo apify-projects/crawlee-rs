@@ -16,7 +16,7 @@ use url::Url;
 use crawlee_basic::{
     BasicContext, BasicCrawlerBuilder, ConcurrencyOptions, CrawlingContext, Middleware, RequestSkipped,
 };
-use crawlee_core::errors::{NonRetryableError, SessionError};
+use crawlee_core::errors::{NonRetryableError, RequestThrottledError, SessionError};
 use crawlee_http_client::{HttpClientError, HttpRequest, HttpResponse, SendOptions};
 use crawlee_utils::{extract_charset_from_html_bytes, matches_enqueue_strategy};
 
@@ -373,6 +373,17 @@ impl Middleware<BasicContext> for HttpPipeline {
         let status = response.status.as_u16();
         if (400..=599).contains(&status) {
             ctx.statistics().record_status_code(status);
+        }
+
+        // Before the status checks, which count 429 as blocked: when the request manager paces the
+        // domain, the request is deferred without spending a retry or blaming the session.
+        if status == 429 {
+            let retry_after = response.headers.get(http::header::RETRY_AFTER).and_then(|v| v.to_str().ok());
+            let wait = crawlee_utils::http::parse_retry_after(retry_after, chrono::Utc::now());
+            let url = ctx.request().url.clone();
+            if ctx.record_domain_rate_limit(&url, wait) {
+                return Err(RequestThrottledError::new(format!("{url} responded with 429.")).into());
+            }
         }
 
         let content_type = ContentType::parse(&response.headers);

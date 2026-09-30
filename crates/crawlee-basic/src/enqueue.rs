@@ -127,6 +127,8 @@ pub enum SkipReason {
     Depth,
     /// Over the `limit`.
     Limit,
+    /// Disallowed by robots.txt.
+    RobotsTxt,
 }
 
 /// Result of `enqueue_links`.
@@ -193,6 +195,10 @@ impl BasicContext {
             }
             if self.max_crawl_depth().is_some_and(|max| depth > max) {
                 result.skipped.push((url, SkipReason::Depth));
+                continue;
+            }
+            if !self.scope_shared().is_allowed_by_robots(url.as_str()).await {
+                result.skipped.push((url, SkipReason::RobotsTxt));
                 continue;
             }
 

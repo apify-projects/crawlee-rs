@@ -29,6 +29,11 @@ pub trait RequestManager: Send + Sync {
     async fn set_expected_request_processing_time(&self, _duration: Duration) -> StorageResult<()> {
         Ok(())
     }
+    /// Offers a pacing signal (a 429, a crawl delay). Returns `true` when the manager paces the
+    /// requests it covers; a plain queue does not, and returns `false`.
+    fn record_pacing_signal(&self, _signal: &super::request_loader::PacingSignal) -> bool {
+        false
+    }
 }
 
 /// Number of slots of the add-deduplication cache, as in Crawlee for JS.

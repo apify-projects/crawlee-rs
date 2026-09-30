@@ -10,10 +10,14 @@ use serde::de::DeserializeOwned;
 use tokio::sync::Notify;
 
 use crawlee_core::storage::backend::BatchAddRequestsResult;
-use crawlee_core::{Dataset, KeyValueStore, Request, RequestManager, SerdeState, Services, StorageTransaction};
+use crawlee_core::{
+    Dataset, KeyValueStore, PacingScope, PacingSignal, Request, RequestManager, SerdeState, Services,
+    StorageTransaction,
+};
 use crawlee_http_client::{HttpClient, HttpClientError, HttpRequest, HttpResponse, SendOptions};
 
 use crate::proxy::ProxyInfo;
+use crate::robots::RobotsCache;
 use crate::session::Session;
 use crate::statistics::Statistics;
 
@@ -41,9 +45,66 @@ pub struct CrawlerShared {
     pub(crate) in_flight: AtomicUsize,
     /// Woken when `in_flight` drops to zero.
     pub(crate) drained: Notify,
+    /// robots.txt files, when the crawler respects them.
+    pub(crate) robots: Option<RobotsCache>,
+    /// Domains already warned about (unpaced 429s and crawl delays).
+    pub(crate) warned: Mutex<std::collections::HashSet<String>>,
+}
+
+fn hostname_of(url: &str) -> String {
+    url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_owned)).unwrap_or_else(|| url.to_owned())
 }
 
 impl CrawlerShared {
+    fn warn_once(&self, key: String, message: impl FnOnce() -> String) {
+        if self.warned.lock().insert(key) {
+            tracing::warn!("{}", message());
+        }
+    }
+
+    /// Whether robots.txt lets the crawler visit `url` (always, when robots.txt is not
+    /// respected). A `Crawl-delay` is handed to the request manager.
+    pub(crate) async fn is_allowed_by_robots(&self, url: &str) -> bool {
+        let Some(cache) = &self.robots else { return true };
+        let Some(robots) = cache.get(url, self.http_client.as_ref()).await else { return true };
+        if let Some(delay) = robots.crawl_delay(cache.user_agent()).filter(|d| d.is_finite() && *d > 0.0) {
+            let signal = PacingSignal::MinInterval {
+                url: url.to_owned(),
+                interval: Duration::from_secs_f64(delay),
+                scope: Some(PacingScope::Hostname),
+            };
+            if !self.request_manager.record_pacing_signal(&signal) {
+                let domain = hostname_of(url);
+                self.warn_once(format!("crawl-delay:{domain}"), || {
+                    format!(
+                        "robots.txt for \"{domain}\" defines a crawl-delay of {delay}s, but the crawler's request \
+                         manager does not pace that domain, so its requests will not be paced. Set \
+                         same_domain_delay, or use a ThrottlingRequestManager covering \"{domain}\"."
+                    )
+                });
+            }
+        }
+        robots.is_allowed(url, cache.user_agent())
+    }
+
+    /// Offers a 429 to the request manager. `true` when it paces the domain; the request is then
+    /// deferred with a `RequestThrottledError` instead of blaming the session.
+    pub fn record_domain_rate_limit(&self, url: &str, wait: Option<Duration>) -> bool {
+        if self.request_manager.record_pacing_signal(&PacingSignal::RateLimited { url: url.to_owned(), wait }) {
+            return true;
+        }
+        let domain = hostname_of(url);
+        self.warn_once(format!("429:{domain}"), || {
+            format!(
+                "\"{domain}\" responded with HTTP 429 (Too Many Requests), but the crawler's request manager does \
+                 not pace that domain, so the response is handled like any other, with no per-domain delay. Set \
+                 same_domain_delay, or use a ThrottlingRequestManager covering \"{domain}\", to honour \
+                 Retry-After and apply exponential backoff instead."
+            )
+        });
+        false
+    }
+
     /// Waits until no request is being processed.
     pub(crate) async fn wait_until_drained(&self) {
         loop {
@@ -176,6 +237,10 @@ impl BasicContext {
         &self.scope.transaction
     }
 
+    pub(crate) fn scope_shared(&self) -> &Arc<CrawlerShared> {
+        &self.scope.shared
+    }
+
     pub(crate) fn max_crawl_depth(&self) -> Option<u32> {
         self.scope.shared.max_crawl_depth
     }
@@ -257,6 +322,11 @@ impl BasicContext {
         T: Serialize + DeserializeOwned + Send + Sync + 'static,
     {
         Ok(self.scope.shared.services.auto_saved_value(&self.scope.shared.state_key, default).await?)
+    }
+
+    /// See [`CrawlerShared::record_domain_rate_limit`].
+    pub fn record_domain_rate_limit(&self, url: &str, wait: Option<Duration>) -> bool {
+        self.scope.shared.record_domain_rate_limit(url, wait)
     }
 
     /// Sends an HTTP request with this request's session (cookies and proxy).

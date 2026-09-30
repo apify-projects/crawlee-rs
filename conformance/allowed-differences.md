@@ -11,7 +11,7 @@ This file lists every deliberate difference between crawlee-rs and Crawlee for J
 
 ## Golden-file cases
 
-_None._ All 284 cases match.
+_None._ All 755 checks match.
 
 ## API and design differences
 
@@ -22,12 +22,14 @@ _None._ All 284 cases match.
 | HTML API | cheerio `$` (jQuery API) | `Document` / `Selection` / `Element` facade over `scraper`, used through `with_html` | No jQuery in Rust; parsing runs off the async threads |
 | `errorMessages` | `error.stack` | The error with its cause chain (`{error:#}`) | Rust errors have no JS stack traces |
 | Error grouping in statistics | By error code, name, stack path and message placeholders | By first message line with digits masked | Same reason |
-| Concurrency | Autoscaled between `minConcurrency` and `maxConcurrency` | Fixed at `max_concurrency` (for now) | Autoscaling is not ported yet |
+| Event loop load signal | Lateness of a Node timer | Lateness of a tokio timer task | There is no single event loop; a starved tokio runtime is the equivalent |
 | `maxRequestsPerCrawl` | Can overshoot by in-flight requests (5042 of 5000 in the benchmark) | Never exceeded | In-flight requests are counted before fetching |
 | Transaction capture | Ambient (`AsyncLocalStorage`) | Only writes made through the context | No ambient context in Rust; explicit is clearer |
 | Request queue order numbers | `±Date.now()` | A process-wide counter | Same order, deterministic |
 | Add dedup cache | Stores keys | Stores 64-bit fingerprints of keys (8 MiB per million) | Memory |
-| Default HTTP client | `impit` (browser impersonation) | reqwest (rustls, h2) | The `impit` crate is not on crates.io yet |
+| Default HTTP client | `impit` (browser impersonation) | reqwest (rustls, h2); impit through `integrations/crawlee-impit` | impit needs patched dependencies, which cannot be forced on every user |
+| Throttling | `checkReadiness()` can report a domain as `stalled` after `maxDomainStallSecs` of 429s | Not ported: a domain that rate-limits forever is retried forever | The task loop has no readiness states yet |
+| Error groups in saved statistics | `errors` / `retryErrors` hold the nested `ErrorTracker` tree | A flat `{ group: count }` map | Follows from the error grouping above; JS rebuilds its trackers from scratch on restore anyway |
 
 ## Behavior differences not yet covered by golden cases
 
@@ -49,6 +51,12 @@ _None._ All 284 cases match.
   - Integers beyond 2^53 are kept exact; JS rounds them.
   - Lone UTF-16 surrogates in `\u` escapes are rejected by serde_json.
   - Object keys keep insertion order (`preserve_order`). JS moves integer-like keys first.
+- **robots.txt that is missing.** A 4xx answer is cached as allow-all. Crawlee for JS throws on
+  any non-2xx status before its own 404 check. As a result, every request to a site without
+  robots.txt fetches it again.
+- **Malformed sitemaps.** A sitemap is parsed whole once fetched. A syntax error discards it and
+  is retried like a failed fetch. JS streams it: it yields the entries before the error, then the
+  error ends the whole `Sitemap.load`.
 - **Public Suffix List version.** Domains are computed with the `psl` crate's built-in list and
   `tldts`'s default ICANN-only mode is emulated. The two list snapshots can differ for newly added
   suffixes.

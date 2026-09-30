@@ -13,7 +13,9 @@ use http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
 use serde::de::DeserializeOwned;
 use url::Url;
 
-use crawlee_basic::{BasicContext, BasicCrawlerBuilder, CrawlingContext, Middleware, RequestSkipped};
+use crawlee_basic::{
+    BasicContext, BasicCrawlerBuilder, ConcurrencyOptions, CrawlingContext, Middleware, RequestSkipped,
+};
 use crawlee_core::errors::{NonRetryableError, SessionError};
 use crawlee_http_client::{HttpClientError, HttpRequest, HttpResponse, SendOptions};
 use crawlee_utils::{extract_charset_from_html_bytes, matches_enqueue_strategy};
@@ -438,5 +440,6 @@ impl HttpCrawler {
 
     pub fn builder_with_options(options: HttpCrawlerOptions) -> BasicCrawlerBuilder<HttpPipeline> {
         BasicCrawlerBuilder::with_pipeline(HttpPipeline::new(options))
+            .concurrency_options(ConcurrencyOptions::http_optimized())
     }
 }

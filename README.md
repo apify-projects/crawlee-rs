@@ -49,7 +49,7 @@ To start your own project from one of them:
 This is the same workload in both implementations, crawling a local fixture site of 58 KB product
 listings. For each page the handler parses the DOM, extracts the title and 20 products (3 selectors
 each), pushes one dataset item and runs `enqueue_links` (about 80 links per page, most of them
-duplicates). Concurrency is fixed, and storage is in memory.
+duplicates). Concurrency is pinned (min = max) in both, and storage is in memory.
 
 | Scenario | Implementation | Pages/s | CPU per page | Peak RSS |
 |---|---|---:|---:|---:|
@@ -77,7 +77,7 @@ duplicates). Concurrency is fixed, and storage is in memory.
 | `crawlee-utils` | `@crawlee/utils`, `@apify/utilities` | `normalize_url`, enqueue strategies, public-suffix domains, glob/regex URL filters, streaming link extraction (`lol_html`), HTML attribute entity decoding, charset prescan |
 | `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `EventManager`, `RecoverableState`, system info (cgroup-aware), `Services` |
 | `crawlee-http-client` | `@crawlee/http-client` | The `HttpClient` / `Transport` traits, the shared redirect and cookie logic, a reqwest transport |
-| `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline |
+| `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline, autoscaling (`ConcurrencySystem`, `SystemStatus`, load signals) |
 | `crawlee-http` | `@crawlee/http`, `@crawlee/cheerio` | `HttpCrawler` (typed JSON via serde), `HtmlCrawler` (lazy DOM, streaming `enqueue_links`), body decoding |
 | `crawlee-impit` ([integrations/](integrations/crawlee-impit)) | `@crawlee/impit-client` | A transport with browser TLS and HTTP/2 fingerprints. It is kept outside the workspace because impit needs patched dependencies; see its [README](integrations/crawlee-impit/README.md) |
 
@@ -152,6 +152,14 @@ The goal was to keep Crawlee v4's architecture and change it only where Rust nee
 - **Errors.** Handlers return `anyhow::Result<()>`. To steer retries, return `SessionError`,
   `NonRetryableError`, `RetryRequestError`, `CriticalError` or `RequestThrottledError`; they are
   found anywhere in the error chain. The retry logic ports `requestFunctionErrorHandler`.
+- **Autoscaling** ports `ConcurrencySystem` with the same defaults:
+  - It runs between `min_concurrency` (1) and `max_concurrency` (200). `HttpCrawler` and
+    `HtmlCrawler` start at 10.
+  - Every 10 s it scales by 5 % up or down, based on memory, CPU, storage rate limits and runtime
+    responsiveness.
+  - Runtime responsiveness stands in for the event loop signal of Node. It measures how late a
+    timer task fires on the tokio runtime.
+  - `fixed_concurrency(n)` pins it, and `max_requests_per_minute` caps the rate.
 - **`#![forbid(unsafe_code)]`** holds in every crate. The lint is set at the workspace level.
 
 ## Conformance with Crawlee for JS
@@ -176,14 +184,13 @@ to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them ag
 
 These are planned in this order, following `docs/plan.md`:
 
-1. **`ConcurrencySystem` / autoscaling.** The pool currently runs at a fixed `max_concurrency`.
-2. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
+1. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
    `robots.txt`.
-3. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
-   `skip_navigation` in `HttpCrawler`, `max_requests_per_minute`.
-4. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
+2. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
+   `skip_navigation` in `HttpCrawler`.
+3. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
    implementations against the fixture server, comparing their outputs.
-5. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
+4. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
 
 ## Development
 

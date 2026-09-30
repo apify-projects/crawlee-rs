@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures::FutureExt as _;
-use tokio::sync::{Notify, OnceCell, Semaphore};
+use tokio::sync::{Notify, OnceCell};
 use tokio::task::JoinSet;
 use tracing::Instrument as _;
 
@@ -19,6 +19,7 @@ use crawlee_http_client::HttpClient;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::autoscaling::{ConcurrencyError, ConcurrencyOptions, ConcurrencySystem};
 use crate::context::{BasicContext, CrawlerShared, CrawlingContext, InFlight, RequestScope};
 use crate::errors::{ErrorKind, HandlerPanic, RequestHandlerTimeout, error_message};
 use crate::handler::{ErrorHandler, Identity, Middleware, RequestHandler};
@@ -28,6 +29,9 @@ use crate::statistics::{FinalStatistics, Statistics};
 
 /// How long the task loop waits for new requests before checking the queue again.
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// How often the task loop asks the concurrency system again when it had no capacity
+/// (`maybeRunIntervalSecs`).
+const MAYBE_RUN_INTERVAL: Duration = Duration::from_millis(500);
 /// How long a migration or abort waits for running requests (`SAFE_MIGRATION_WAIT_MILLIS`).
 const SAFE_MIGRATION_WAIT: Duration = Duration::from_secs(20);
 const CRAWLEE_STATE_KEY: &str = "CRAWLEE_STATE";
@@ -35,11 +39,9 @@ const CRAWLEE_STATE_KEY: &str = "CRAWLEE_STATE";
 /// Crawler settings, with the defaults of Crawlee for JS where they exist.
 #[derive(Clone, Debug)]
 pub struct CrawlerOptions {
-    /// Maximum number of requests processed in parallel.
-    ///
-    /// This milestone runs a fixed-size pool; autoscaling by system load (`ConcurrencySystem` in
-    /// Crawlee for JS) is planned.
-    pub max_concurrency: usize,
+    /// How many requests run in parallel: between `min_concurrency` (1) and `max_concurrency`
+    /// (200), scaled by the system load. See [`crate::autoscaling`].
+    pub concurrency: ConcurrencyOptions,
     /// Retries per request after the first attempt (`maxRequestRetries`).
     pub max_request_retries: u32,
     /// Stop after this many requests finished (`maxRequestsPerCrawl`).
@@ -62,7 +64,7 @@ pub struct CrawlerOptions {
 impl Default for CrawlerOptions {
     fn default() -> Self {
         CrawlerOptions {
-            max_concurrency: 50,
+            concurrency: ConcurrencyOptions::default(),
             max_request_retries: 3,
             max_requests_per_crawl: None,
             max_crawl_depth: None,
@@ -79,8 +81,8 @@ impl Default for CrawlerOptions {
 pub enum BuildError {
     #[error("a request handler is required: call `request_handler()` or `router()`")]
     MissingRequestHandler,
-    #[error("max_concurrency must be at least 1")]
-    ZeroConcurrency,
+    #[error(transparent)]
+    Concurrency(#[from] ConcurrencyError),
 }
 
 struct Inner<P: Middleware<BasicContext>> {
@@ -99,6 +101,7 @@ struct Inner<P: Middleware<BasicContext>> {
     statistics: Arc<Statistics>,
     statistics_state: RecoverableState<Statistics>,
     session_pool_state: RecoverableState<SessionPool>,
+    concurrency: Arc<ConcurrencySystem>,
     shared: OnceCell<Arc<CrawlerShared>>,
 }
 
@@ -200,8 +203,41 @@ where
         self
     }
 
+    /// At most this many requests in parallel (`maxConcurrency`, default 200).
     pub fn max_concurrency(mut self, max_concurrency: usize) -> Self {
-        self.options.max_concurrency = max_concurrency;
+        self.options.concurrency.max_concurrency = max_concurrency;
+        self.options.concurrency.min_concurrency = self.options.concurrency.min_concurrency.min(max_concurrency);
+        self
+    }
+
+    /// At least this many requests in parallel, whatever the load (`minConcurrency`, default 1).
+    pub fn min_concurrency(mut self, min_concurrency: usize) -> Self {
+        self.options.concurrency.min_concurrency = min_concurrency;
+        self
+    }
+
+    /// The concurrency autoscaling starts from (`initialConcurrency`).
+    pub fn desired_concurrency(mut self, desired_concurrency: usize) -> Self {
+        self.options.concurrency.desired_concurrency = Some(desired_concurrency);
+        self
+    }
+
+    /// A fixed concurrency: `min_concurrency = max_concurrency = concurrency`.
+    pub fn fixed_concurrency(mut self, concurrency: usize) -> Self {
+        self.options.concurrency.min_concurrency = concurrency;
+        self.options.concurrency.max_concurrency = concurrency;
+        self
+    }
+
+    /// Starts at most this many requests per minute (`maxRequestsPerMinute`).
+    pub fn max_requests_per_minute(mut self, max: u64) -> Self {
+        self.options.concurrency.max_tasks_per_minute = Some(max);
+        self
+    }
+
+    /// All autoscaling options at once, including the load signals.
+    pub fn concurrency_options(mut self, options: ConcurrencyOptions) -> Self {
+        self.options.concurrency = options;
         self
     }
 
@@ -262,9 +298,7 @@ where
 
     pub fn build(self) -> Result<BasicCrawler<P>, BuildError> {
         let handler = self.handler.ok_or(BuildError::MissingRequestHandler)?;
-        if self.options.max_concurrency == 0 {
-            return Err(BuildError::ZeroConcurrency);
-        }
+        let concurrency = Arc::new(ConcurrencySystem::new(self.options.concurrency.clone())?);
         static INSTANCE_COUNT: AtomicU64 = AtomicU64::new(0);
         let instance_index = INSTANCE_COUNT.fetch_add(1, Ordering::Relaxed);
         let has_explicit_id = self.options.id.is_some();
@@ -293,6 +327,7 @@ where
                 statistics,
                 statistics_state,
                 session_pool_state,
+                concurrency,
                 shared: OnceCell::new(),
             }),
         })
@@ -452,7 +487,7 @@ where
                 } else {
                     format!(
                         "Crawled {succeeded} pages, {failed} failed requests, desired concurrency {}.",
-                        crawler.inner.options.max_concurrency
+                        crawler.inner.concurrency.desired_concurrency()
                     )
                 };
                 crawler.set_status_message(message, StatusLevel::Debug, false);
@@ -526,7 +561,13 @@ where
 
         self.add_requests(requests).await?;
         inner.statistics.start();
-        tracing::info!(max_concurrency = inner.options.max_concurrency, "Starting the crawler.");
+        inner.concurrency.start(&inner.services);
+        tracing::info!(
+            min_concurrency = inner.concurrency.min_concurrency(),
+            max_concurrency = inner.concurrency.max_concurrency(),
+            desired_concurrency = inner.concurrency.desired_concurrency(),
+            "Starting the crawler."
+        );
         let status_logger = self.spawn_status_logger();
         self.set_status_message("Starting the crawler.", StatusLevel::Info, false);
 
@@ -540,6 +581,7 @@ where
 
         let mut result = self.task_loop(&shared).await;
         inner.statistics.finish();
+        inner.concurrency.stop();
         for id in pause_listeners {
             events.off(id);
         }
@@ -590,7 +632,7 @@ where
 
     async fn task_loop(&self, shared: &Arc<CrawlerShared>) -> anyhow::Result<()> {
         let options = &self.inner.options;
-        let permits = Arc::new(Semaphore::new(options.max_concurrency));
+        let concurrency = &self.inner.concurrency;
         let mut tasks: JoinSet<anyhow::Result<()>> = JoinSet::new();
         let mut limit_logged = false;
 
@@ -632,23 +674,27 @@ where
                 }
             }
 
-            let permit = tokio::select! {
-                permit = permits.clone().acquire_owned() => permit.expect("the semaphore is never closed"),
-                Some(joined) = tasks.join_next(), if !tasks.is_empty() && permits.available_permits() == 0 => {
-                    Self::check_task(joined, &mut tasks)?;
-                    continue;
+            // No capacity: wait for a task to finish, or ask again shortly (the desired
+            // concurrency and the load change over time).
+            if !concurrency.can_start_task() {
+                tokio::select! {
+                    Some(joined) = tasks.join_next(), if !tasks.is_empty() => Self::check_task(joined, &mut tasks)?,
+                    () = tokio::time::sleep(MAYBE_RUN_INTERVAL) => {}
                 }
-            };
+                continue;
+            }
 
             match shared.request_manager.fetch_next_request().await? {
                 Some(request) => {
                     let crawler = self.clone();
                     let shared = shared.clone();
+                    concurrency.register_task_start();
+                    let slot = ConcurrencySlot(concurrency.clone());
                     let in_flight = InFlight::new(shared.clone());
                     let span = tracing::info_span!("request", url = %request.url);
                     tasks.spawn(
                         async move {
-                            let _permit = permit;
+                            let _slot = slot;
                             let _in_flight = in_flight;
                             crawler.process_request(shared, request).await
                         }
@@ -656,7 +702,6 @@ where
                     );
                 }
                 None => {
-                    drop(permit);
                     if tasks.is_empty() && shared.request_manager.is_finished().await? {
                         return Ok(());
                     }
@@ -669,6 +714,11 @@ where
                 }
             }
         }
+    }
+
+    /// The concurrency system this crawler scales with.
+    pub fn concurrency_system(&self) -> &Arc<ConcurrencySystem> {
+        &self.inner.concurrency
     }
 
     fn check_task(
@@ -858,4 +908,14 @@ fn panic_error(panic: Box<dyn std::any::Any + Send>) -> anyhow::Error {
         .or_else(|| panic.downcast_ref::<String>().cloned())
         .unwrap_or_else(|| "unknown panic payload".to_owned());
     HandlerPanic { message }.into()
+}
+
+/// A running task as counted by the concurrency system; the end is registered on drop, so a
+/// panicking or aborted task frees its slot too.
+struct ConcurrencySlot(Arc<ConcurrencySystem>);
+
+impl Drop for ConcurrencySlot {
+    fn drop(&mut self) {
+        self.0.register_task_end();
+    }
 }

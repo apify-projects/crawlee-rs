@@ -473,3 +473,77 @@ async fn migrating_pauses_the_crawl_and_status_messages_are_emitted() {
     assert_eq!(messages.first().unwrap(), &("Starting the crawler.".to_owned(), false));
     assert_eq!(messages.last().unwrap(), &("Finished! Total 3 requests: 3 succeeded, 0 failed.".to_owned(), true));
 }
+
+/// A load signal the test switches between idle and overloaded.
+#[derive(Default)]
+struct TestSignal {
+    overloaded: std::sync::atomic::AtomicBool,
+}
+
+impl crawlee_basic::LoadSignal for TestSignal {
+    fn name(&self) -> &str {
+        "test"
+    }
+    fn overloaded_ratio(&self) -> f64 {
+        0.5
+    }
+    fn start(&self, _: &Services, _: Duration) {}
+    fn stop(&self) {}
+    fn sample(&self, _: Option<Duration>) -> Vec<crawlee_basic::autoscaling::LoadSnapshot> {
+        vec![crawlee_basic::autoscaling::LoadSnapshot {
+            created_at: chrono::Utc::now(),
+            is_overloaded: self.overloaded.load(Ordering::SeqCst),
+        }]
+    }
+}
+
+async fn peak_concurrency(overloaded: bool) -> (usize, usize) {
+    use crawlee_basic::{ConcurrencyOptions, LoadSignalsOptions};
+
+    let signal = Arc::new(TestSignal::default());
+    signal.overloaded.store(overloaded, Ordering::SeqCst);
+    let custom: Arc<dyn crawlee_basic::LoadSignal> = signal;
+    let (running, peak) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let (running_in, peak_in) = (running.clone(), peak.clone());
+    let crawler = BasicCrawler::builder()
+        .services(services())
+        .concurrency_options(ConcurrencyOptions {
+            min_concurrency: 1,
+            max_concurrency: 8,
+            scale_up_step_ratio: 0.5,
+            autoscale_interval: Duration::from_millis(20),
+            load_signals: LoadSignalsOptions {
+                memory: None,
+                event_loop: None,
+                cpu: None,
+                storage: None,
+                custom: vec![custom],
+            },
+            ..ConcurrencyOptions::default()
+        })
+        .request_handler(move |_ctx: BasicContext| {
+            let (running, peak) = (running_in.clone(), peak_in.clone());
+            async move {
+                let now = running.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(now, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                running.fetch_sub(1, Ordering::SeqCst);
+                Ok(())
+            }
+        })
+        .build()
+        .unwrap();
+    let urls: Vec<String> = (0..80).map(|i| format!("https://a.dev/{i}")).collect();
+    assert_eq!(crawler.run(urls).await.unwrap().requests_succeeded, 80);
+    (peak.load(Ordering::SeqCst), crawler.concurrency_system().desired_concurrency())
+}
+
+#[tokio::test]
+async fn concurrency_scales_with_the_load() {
+    let (peak, desired) = peak_concurrency(false).await;
+    assert_eq!(desired, 8, "scaled up to the max while idle");
+    assert!(peak > 1 && peak <= 8, "peak {peak}");
+
+    let (peak, desired) = peak_concurrency(true).await;
+    assert_eq!((peak, desired), (1, 1), "overloaded: stays at min_concurrency");
+}

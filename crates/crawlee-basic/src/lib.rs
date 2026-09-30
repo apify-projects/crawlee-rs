@@ -1,6 +1,7 @@
 //! `BasicCrawler` for crawlee-rs: the task loop, retries, sessions, router and statistics every
 //! crawler builds on.
 
+pub mod autoscaling;
 pub mod context;
 pub mod crawler;
 pub mod enqueue;
@@ -11,6 +12,7 @@ pub mod router;
 pub mod session;
 pub mod statistics;
 
+pub use crate::autoscaling::{ConcurrencyOptions, ConcurrencySystem, LoadSignal, LoadSignalsOptions};
 pub use crate::context::{BasicContext, CrawlingContext};
 pub use crate::crawler::{BasicCrawler, BasicCrawlerBuilder, BuildError, CrawlerOptions};
 pub use crate::enqueue::{EnqueueLinksOptions, EnqueueLinksResult, SkipReason};

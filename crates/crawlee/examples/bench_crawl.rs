@@ -48,7 +48,8 @@ async fn main() -> anyhow::Result<()> {
 
     let crawler = HtmlCrawler::builder()
         .services(Services::in_memory())
-        .max_concurrency(concurrency)
+        // Pinned, like the JS benchmark (min = max), to compare equal concurrency.
+        .fixed_concurrency(concurrency)
         .max_requests_per_crawl(pages)
         .request_handler(|ctx: HtmlContext| async move {
             let (title, products) = ctx

@@ -15,7 +15,8 @@ use url::Url;
 
 use crawlee_basic::enqueue::EnqueueError;
 use crawlee_basic::{
-    BasicContext, BasicCrawlerBuilder, CrawlingContext, EnqueueLinksOptions, EnqueueLinksResult, Middleware, Then,
+    BasicContext, BasicCrawlerBuilder, ConcurrencyOptions, CrawlingContext, EnqueueLinksOptions, EnqueueLinksResult,
+    Middleware, Then,
 };
 use crawlee_utils::links::{DEFAULT_LINK_SELECTOR, LinkExtractionError, extract_links, is_streaming_selector};
 
@@ -355,6 +356,7 @@ impl HtmlCrawler {
 
     pub fn builder_with_options(options: HttpCrawlerOptions) -> BasicCrawlerBuilder<HtmlPipeline> {
         BasicCrawlerBuilder::with_pipeline(Then(HttpPipeline::new(options), HtmlLayer))
+            .concurrency_options(ConcurrencyOptions::http_optimized())
     }
 }
 

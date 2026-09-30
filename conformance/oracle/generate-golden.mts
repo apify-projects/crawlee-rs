@@ -34,6 +34,11 @@ const { Request } = await import(pathToFileURL(join(root, 'packages', 'core', 's
 const { uniqueKeyToRequestId } = await import(
     pathToFileURL(join(root, 'packages', 'core', 'src', 'memory-storage', 'utils.ts')).href
 );
+const { RobotsTxtFile } = await import(pathToFileURL(join(utilsDir, 'src', 'internals', 'robots.ts')).href);
+const { parseSitemap } = await import(pathToFileURL(join(utilsDir, 'src', 'internals', 'sitemap.ts')).href);
+const { parseRetryAfterHeader } = await import(
+    pathToFileURL(join(root, 'packages', 'basic-crawler', 'src', 'internals', 'http.ts')).href
+);
 const { extractCharsetFromHtmlBytes } = await import(
     pathToFileURL(join(root, 'packages', 'http-crawler', 'src', 'internals', 'utils.ts')).href
 );
@@ -251,4 +256,123 @@ const jsonCases = [
 write(
     'kvs_json',
     jsonCases.map((value) => ({ value, text: JSON.stringify(value, null, 2) })),
+);
+
+// --- robots.txt (robots-parser, through RobotsTxtFile) -----------------------------------------
+
+const robotsFiles = [
+    {
+        id: 'groups',
+        content: [
+            'User-agent: *',
+            'Disallow: /private/',
+            'Allow: /private/public',
+            'Disallow: /*.pdf$',
+            'Disallow: /search?',
+            'Crawl-delay: 2',
+            '',
+            'User-agent: GoodBot',
+            'User-agent: other-bot/2.0',
+            'Disallow:',
+            'Crawl-delay: 0.5',
+            '',
+            'User-agent: BadBot',
+            'Disallow: /',
+            '',
+            'Sitemap: https://example.com/sitemap.xml',
+            'Sitemap: https://other.com/sitemap.xml',
+            'Sitemap: https://sub.example.com/s.xml',
+        ].join('\n'),
+    },
+    {
+        id: 'ties-and-encoding',
+        content: 'user-agent: *\r\ndisallow: /page\r\nallow: /page\r\nDisallow: /caf\u00e9\rDisallow: /a%2fb # comment\nDisallow: /x*y$\nAllow: /*.html$',
+    },
+    { id: 'no-rules', content: '# nothing here\nSitemap:\nfoo bar\nUser-agent: *\nCrawl-delay: soon' },
+    { id: 'wildcard-only', content: 'User-agent: *\nDisallow: *\nAllow: /$' },
+];
+const robotsUrls = [
+    'https://example.com/',
+    'https://example.com/private/x',
+    'https://example.com/private/public/x',
+    'https://example.com/a/b.pdf',
+    'https://example.com/a/b.pdf?x=1',
+    'https://example.com/search?q=1',
+    'https://example.com/search',
+    'https://example.com/page',
+    'https://example.com/caf%C3%A9',
+    'https://example.com/café',
+    'https://example.com/a%2Fb',
+    'https://example.com/a%2fb',
+    'https://example.com/xzzy',
+    'https://example.com/xzzy/',
+    'https://example.com/index.html',
+    'http://example.com/private/x',
+    'https://example.com:8443/private/x',
+    'https://other.com/private/x',
+];
+const userAgents = ['*', 'GoodBot', 'goodbot/1.0', 'other-bot', 'BadBot', 'Unknown'];
+write(
+    'robots_txt',
+    robotsFiles.map(({ id, content }) => {
+        const robots = RobotsTxtFile.from('https://example.com/robots.txt', content);
+        return {
+            id,
+            content,
+            sitemaps: robots.getSitemaps(),
+            crawlDelay: Object.fromEntries(userAgents.map((ua) => [ua, robots.getCrawlDelay(ua) ?? null])),
+            allowed: robotsUrls.flatMap((url) => userAgents.map((ua) => ({ url, ua, allowed: robots.isAllowed(url, ua) }))),
+        };
+    }),
+);
+
+// --- Sitemap XML parsing ----------------------------------------------------------------------
+
+const sitemapCases = [
+    {
+        id: 'urlset',
+        content: `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc> https://example.com/a?x=1&amp;y=2 </loc><lastmod>2024-05-01</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc><![CDATA[https://example.com/b]]></loc><changefreq>sometimes</changefreq><priority>high</priority></url>
+  <url><loc>https://example.com/c</loc><lastmod>2024-05-01T10:20:30+02:00</lastmod><lastmod>not a date</lastmod></url>
+  <url><loc>https://example.com/d</loc><lastmod>2024-05-01T10:20Z</lastmod><priority>1</priority></url>
+  <url><lastmod>2024-01-01</lastmod></url>
+  <url><loc>https://example.com/&#233;t&#xE9;</loc></url>
+</urlset>`,
+    },
+    {
+        id: 'sitemapindex',
+        content: `<sitemapindex><sitemap><loc>https://example.com/s1.xml</loc><lastmod>2024-01-01</lastmod></sitemap>
+<sitemap><loc>https://example.com/s2.xml.gz</loc></sitemap></sitemapindex>`,
+    },
+    { id: 'no-root', content: '<foo><url><loc>https://example.com/x</loc></url></foo>' },
+];
+const sitemapItems = async (content: string) => {
+    const items = [];
+    for await (const item of parseSitemap([{ type: 'raw', content }], undefined, { emitNestedSitemaps: true, maxDepth: 0 })) {
+        items.push(
+            item.originSitemapUrl === null
+                ? { sitemap: item.loc }
+                : {
+                      loc: item.loc,
+                      lastmod: item.lastmod?.toISOString() ?? null,
+                      changefreq: item.changefreq ?? null,
+                      priority: item.priority === undefined || Number.isNaN(item.priority) ? null : item.priority,
+                  },
+        );
+    }
+    return items;
+};
+write(
+    'sitemap_xml',
+    await Promise.all(sitemapCases.map(async ({ id, content }) => ({ id, content, items: await sitemapItems(content) }))),
+);
+
+// --- Retry-After ------------------------------------------------------------------------------
+
+const retryAfterValues = ['', '0', '5', ' 120 ', '-1', '1.5', 'abc', 'Wed, 21 Oct 2015 07:28:00 GMT'];
+write(
+    'retry_after',
+    retryAfterValues.map((value) => ({ value, millis: parseRetryAfterHeader(value) })),
 );

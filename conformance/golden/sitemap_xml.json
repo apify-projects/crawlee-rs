@@ -1,0 +1,55 @@
+[
+  {
+    "id": "urlset",
+    "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url><loc> https://example.com/a?x=1&amp;y=2 </loc><lastmod>2024-05-01</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>\n  <url><loc><![CDATA[https://example.com/b]]></loc><changefreq>sometimes</changefreq><priority>high</priority></url>\n  <url><loc>https://example.com/c</loc><lastmod>2024-05-01T10:20:30+02:00</lastmod><lastmod>not a date</lastmod></url>\n  <url><loc>https://example.com/d</loc><lastmod>2024-05-01T10:20Z</lastmod><priority>1</priority></url>\n  <url><lastmod>2024-01-01</lastmod></url>\n  <url><loc>https://example.com/&#233;t&#xE9;</loc></url>\n</urlset>",
+    "items": [
+      {
+        "loc": "https://example.com/a?x=1&y=2",
+        "lastmod": "2024-05-01T00:00:00.000Z",
+        "changefreq": "daily",
+        "priority": 0.8
+      },
+      {
+        "loc": "https://example.com/b",
+        "lastmod": null,
+        "changefreq": null,
+        "priority": null
+      },
+      {
+        "loc": "https://example.com/c",
+        "lastmod": "2024-05-01T08:20:30.000Z",
+        "changefreq": null,
+        "priority": null
+      },
+      {
+        "loc": "https://example.com/d",
+        "lastmod": "2024-05-01T10:20:00.000Z",
+        "changefreq": null,
+        "priority": 1
+      },
+      {
+        "loc": "https://example.com/été",
+        "lastmod": null,
+        "changefreq": null,
+        "priority": null
+      }
+    ]
+  },
+  {
+    "id": "sitemapindex",
+    "content": "<sitemapindex><sitemap><loc>https://example.com/s1.xml</loc><lastmod>2024-01-01</lastmod></sitemap>\n<sitemap><loc>https://example.com/s2.xml.gz</loc></sitemap></sitemapindex>",
+    "items": [
+      {
+        "sitemap": "https://example.com/s1.xml"
+      },
+      {
+        "sitemap": "https://example.com/s2.xml.gz"
+      }
+    ]
+  },
+  {
+    "id": "no-root",
+    "content": "<foo><url><loc>https://example.com/x</loc></url></foo>",
+    "items": []
+  }
+]

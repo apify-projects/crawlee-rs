@@ -388,6 +388,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "chrono",
  "crawlee-basic",
  "crawlee-core",
  "crawlee-http",
@@ -516,12 +517,16 @@ dependencies = [
 name = "crawlee-utils"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "flate2",
  "globset",
  "lol_html",
  "psl",
+ "quick-xml",
  "regex",
  "serde",
  "thiserror",
+ "tracing",
  "url",
  "web_atoms",
 ]
@@ -1633,6 +1638,15 @@ checksum = "6f42ea446cab60335f76979ec15e12619a2165b5ae2c12166bef27d283a9fadf"
 dependencies = [
  "idna",
  "psl-types",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

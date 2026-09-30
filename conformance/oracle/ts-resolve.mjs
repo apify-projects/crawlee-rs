@@ -30,7 +30,27 @@ function workspaceSource(specifier) {
     return undefined;
 }
 
+// `sax` is CommonJS without detectable named exports, so `(await import('sax')).SAXParser` is
+// undefined under Node's ESM loader (a bundler provides it). Serve a shim that re-exports it.
+const SAX_SHIM = 'crawlee-oracle:sax-shim';
+let saxUrl;
+
+export async function load(url, context, nextLoad) {
+    if (url === SAX_SHIM) {
+        return {
+            format: 'module',
+            shortCircuit: true,
+            source: `import sax from ${JSON.stringify(saxUrl)};\nexport const SAXParser = sax.SAXParser;\nexport default sax;`,
+        };
+    }
+    return nextLoad(url, context);
+}
+
 export async function resolve(specifier, context, nextResolve) {
+    if (specifier === 'sax') {
+        saxUrl ??= (await nextResolve(specifier, context)).url;
+        return { url: SAX_SHIM, shortCircuit: true };
+    }
     const source = workspaceSource(specifier);
     if (source) {
         return nextResolve(pathToFileURL(source).href, context);

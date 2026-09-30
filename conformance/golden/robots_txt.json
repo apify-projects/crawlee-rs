@@ -1,0 +1,2224 @@
+[
+  {
+    "id": "groups",
+    "content": "User-agent: *\nDisallow: /private/\nAllow: /private/public\nDisallow: /*.pdf$\nDisallow: /search?\nCrawl-delay: 2\n\nUser-agent: GoodBot\nUser-agent: other-bot/2.0\nDisallow:\nCrawl-delay: 0.5\n\nUser-agent: BadBot\nDisallow: /\n\nSitemap: https://example.com/sitemap.xml\nSitemap: https://other.com/sitemap.xml\nSitemap: https://sub.example.com/s.xml",
+    "sitemaps": [
+      "https://example.com/sitemap.xml"
+    ],
+    "crawlDelay": {
+      "*": 2,
+      "GoodBot": 0.5,
+      "goodbot/1.0": 0.5,
+      "other-bot": 0.5,
+      "BadBot": null,
+      "Unknown": 2
+    },
+    "allowed": [
+      {
+        "url": "https://example.com/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      }
+    ]
+  },
+  {
+    "id": "ties-and-encoding",
+    "content": "user-agent: *\r\ndisallow: /page\r\nallow: /page\r\nDisallow: /café\rDisallow: /a%2fb # comment\nDisallow: /x*y$\nAllow: /*.html$",
+    "sitemaps": [],
+    "crawlDelay": {
+      "*": null,
+      "GoodBot": null,
+      "goodbot/1.0": null,
+      "other-bot": null,
+      "BadBot": null,
+      "Unknown": null
+    },
+    "allowed": [
+      {
+        "url": "https://example.com/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      }
+    ]
+  },
+  {
+    "id": "no-rules",
+    "content": "# nothing here\nSitemap:\nfoo bar\nUser-agent: *\nCrawl-delay: soon",
+    "sitemaps": [],
+    "crawlDelay": {
+      "*": null,
+      "GoodBot": null,
+      "goodbot/1.0": null,
+      "other-bot": null,
+      "BadBot": null,
+      "Unknown": null
+    },
+    "allowed": [
+      {
+        "url": "https://example.com/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      }
+    ]
+  },
+  {
+    "id": "wildcard-only",
+    "content": "User-agent: *\nDisallow: *\nAllow: /$",
+    "sitemaps": [],
+    "crawlDelay": {
+      "*": null,
+      "GoodBot": null,
+      "goodbot/1.0": null,
+      "other-bot": null,
+      "BadBot": null,
+      "Unknown": null
+    },
+    "allowed": [
+      {
+        "url": "https://example.com/",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/private/public/x",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a/b.pdf?x=1",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search?q=1",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/search",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/page",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/caf%C3%A9",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/café",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2Fb",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/a%2fb",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/xzzy/",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "*",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "GoodBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "goodbot/1.0",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "other-bot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "BadBot",
+        "allowed": false
+      },
+      {
+        "url": "https://example.com/index.html",
+        "ua": "Unknown",
+        "allowed": false
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "http://example.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://example.com:8443/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "*",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "GoodBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "goodbot/1.0",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "other-bot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "BadBot",
+        "allowed": true
+      },
+      {
+        "url": "https://other.com/private/x",
+        "ua": "Unknown",
+        "allowed": true
+      }
+    ]
+  }
+]

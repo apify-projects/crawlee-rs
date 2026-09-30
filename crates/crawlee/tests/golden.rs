@@ -11,7 +11,10 @@ use serde_json::Value;
 use url::Url;
 
 use crawlee::core::request::unique_key_to_request_id;
+use crawlee::utils::http::parse_retry_after;
 use crawlee::utils::links::{extract_charset_from_html_bytes, extract_links};
+use crawlee::utils::robots::RobotsTxt;
+use crawlee::utils::sitemap::{SitemapItem, parse_sitemap_xml};
 use crawlee::utils::url::{matches_enqueue_strategy, normalize_url, registrable_domain};
 use crawlee::{EnqueueStrategy, Request};
 
@@ -282,6 +285,102 @@ fn key_value_store_json_formatting_matches_js() {
     for (i, case) in golden::<Case>("kvs_json").into_iter().enumerate() {
         let bytes = crawlee::core::storage::key_value_store::serialize_json(&case.value).unwrap();
         report.check(i, String::from_utf8(bytes.to_vec()).unwrap(), case.text, &case.value.to_string());
+    }
+    report.finish();
+}
+
+#[test]
+fn robots_txt_matches_robots_parser() {
+    #[derive(Deserialize)]
+    struct Check {
+        url: String,
+        ua: String,
+        allowed: bool,
+    }
+    #[derive(Deserialize)]
+    struct Case {
+        id: String,
+        content: String,
+        sitemaps: Vec<String>,
+        #[serde(rename = "crawlDelay")]
+        crawl_delay: std::collections::BTreeMap<String, Option<f64>>,
+        allowed: Vec<Check>,
+    }
+    let mut report = Report::new("robots_txt");
+    for case in golden::<Case>("robots_txt") {
+        let robots = RobotsTxt::parse("https://example.com/robots.txt", &case.content);
+        report.check(
+            format!("{}/sitemaps", case.id),
+            robots.sitemaps_matching(EnqueueStrategy::SameHostname),
+            case.sitemaps,
+            &case.content,
+        );
+        for (ua, delay) in &case.crawl_delay {
+            report.check(format!("{}/crawl-delay/{ua}", case.id), robots.crawl_delay(ua), *delay, &case.content);
+        }
+        for check in &case.allowed {
+            report.check(
+                format!("{}/{} as {}", case.id, check.url, check.ua),
+                robots.is_allowed(&check.url, &check.ua),
+                check.allowed,
+                &case.content,
+            );
+        }
+    }
+    report.finish();
+}
+
+#[test]
+fn sitemap_xml_matches_js() {
+    #[derive(Deserialize)]
+    struct Case {
+        id: String,
+        content: String,
+        items: Vec<Value>,
+    }
+    let mut report = Report::new("sitemap_xml");
+    for case in golden::<Case>("sitemap_xml") {
+        let items: Vec<Value> = parse_sitemap_xml(&case.content)
+            .unwrap()
+            .into_iter()
+            .map(|item| match item {
+                SitemapItem::Sitemap(loc) => serde_json::json!({ "sitemap": loc }),
+                SitemapItem::Url(url) => serde_json::json!({
+                    "loc": url.loc,
+                    "lastmod": url.lastmod.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+                    "changefreq": url.changefreq.map(|c| c.as_str()),
+                    "priority": url.priority,
+                }),
+            })
+            .collect();
+        // JSON numbers compare as floats: `1` in JS is `1.0` here.
+        let as_floats = |items: Vec<Value>| -> Vec<Value> {
+            items
+                .into_iter()
+                .map(|mut item| {
+                    if let Some(priority) = item.get("priority").and_then(Value::as_f64) {
+                        item["priority"] = serde_json::json!(priority);
+                    }
+                    item
+                })
+                .collect()
+        };
+        report.check(case.id, as_floats(items), as_floats(case.items), &case.content);
+    }
+    report.finish();
+}
+
+#[test]
+fn retry_after_matches_js() {
+    #[derive(Deserialize)]
+    struct Case {
+        value: String,
+        millis: Option<u64>,
+    }
+    let mut report = Report::new("retry_after");
+    for case in golden::<Case>("retry_after") {
+        let millis = parse_retry_after(Some(&case.value), chrono::Utc::now()).map(|d| d.as_millis() as u64);
+        report.check(&case.value, millis, case.millis, &case.value);
     }
     report.finish();
 }

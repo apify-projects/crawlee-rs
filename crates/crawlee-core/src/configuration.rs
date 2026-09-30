@@ -73,7 +73,10 @@ impl Configuration {
         Self::from_sources(|name| std::env::var(name).ok(), std::fs::read_to_string("crawlee.json").ok())
     }
 
-    fn from_sources(env: impl Fn(&str) -> Option<String>, file: Option<String>) -> Self {
+    /// Defaults overridden by `file` (the text of a `crawlee.json`) and then by the variables
+    /// `env` returns. An SDK that adds its own aliases of the `CRAWLEE_*` variables resolves
+    /// them in `env`.
+    pub fn from_sources(env: impl Fn(&str) -> Option<String>, file: Option<String>) -> Self {
         let mut config = Configuration::default();
 
         if let Some(file) = file.and_then(|text| serde_json::from_str::<FileConfiguration>(&text).ok()) {

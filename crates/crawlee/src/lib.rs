@@ -24,6 +24,9 @@
 //! }
 //! ```
 
+/// The version of crawlee-rs.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub use crawlee_basic as basic;
 pub use crawlee_core as core;
 pub use crawlee_http as http;

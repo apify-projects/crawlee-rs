@@ -1,0 +1,69 @@
+[
+  {
+    "options": {
+      "url": "https://example.com/a/"
+    },
+    "uniqueKey": "https://example.com/a",
+    "requestId": "Lc4KTFBEGzPqcr0"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a?b=1&a=2#x"
+    },
+    "uniqueKey": "https://example.com/a?a=2&b=1",
+    "requestId": "EmqGuJMu6vu6nPq"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a#x",
+      "keepUrlFragment": true
+    },
+    "uniqueKey": "https://example.com/a#x",
+    "requestId": "GM79T4LfZdEtcBa"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a",
+      "method": "post",
+      "payload": "{\"q\":1}",
+      "useExtendedUniqueKey": true
+    },
+    "uniqueKey": "POST|auD2YARt|https://example.com/a",
+    "requestId": "ba5DuHYC059g2lD"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a",
+      "method": "PUT",
+      "payload": "x=1&y=2",
+      "useExtendedUniqueKey": true
+    },
+    "uniqueKey": "PUT|3UHKagWl|https://example.com/a",
+    "requestId": "JkGOXSdgC5n3D7b"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a",
+      "method": "POST",
+      "useExtendedUniqueKey": true
+    },
+    "uniqueKey": "POST||https://example.com/a",
+    "requestId": "aPqybrXD3ZsCEjB"
+  },
+  {
+    "options": {
+      "url": "https://example.com/a",
+      "method": "POST",
+      "payload": "ignored without extended key"
+    },
+    "uniqueKey": "https://example.com/a",
+    "requestId": "Lc4KTFBEGzPqcr0"
+  },
+  {
+    "options": {
+      "url": "not a url"
+    },
+    "uniqueKey": "not a url",
+    "requestId": "2LWm5UdgxhI00SY"
+  }
+]

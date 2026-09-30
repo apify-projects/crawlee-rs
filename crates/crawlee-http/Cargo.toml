@@ -1,0 +1,37 @@
+[package]
+name = "crawlee-http"
+description = "HTTP crawlers for crawlee-rs: HttpCrawler (raw bodies and typed JSON) and HtmlCrawler (lazily parsed DOM, streaming link extraction)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+crawlee-basic.workspace = true
+crawlee-core.workspace = true
+crawlee-http-client.workspace = true
+crawlee-utils.workspace = true
+encoding_rs.workspace = true
+http.workspace = true
+mime.workspace = true
+parking_lot.workspace = true
+scraper.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+simdutf8.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+encoding_rs.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+
+[lints]
+workspace = true

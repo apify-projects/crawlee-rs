@@ -1,0 +1,13 @@
+//! Shared utilities for crawlee-rs.
+//!
+//! Everything here is a pure function or a small value type, and most of it has a counterpart in
+//! `@crawlee/utils` or `@apify/utilities` whose behavior it reproduces.
+
+pub mod entities;
+pub mod links;
+pub mod patterns;
+pub mod url;
+
+pub use crate::links::{DEFAULT_LINK_SELECTOR, extract_charset_from_html_bytes, extract_links};
+pub use crate::patterns::{UrlFilter, UrlPattern};
+pub use crate::url::{EnqueueStrategy, filter_url, matches_enqueue_strategy, normalize_url, registrable_domain};

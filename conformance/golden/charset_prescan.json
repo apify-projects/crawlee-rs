@@ -1,0 +1,30 @@
+[
+  {
+    "html": "<meta charset=\"utf-8\">",
+    "expected": "utf-8"
+  },
+  {
+    "html": "<meta charset=windows-1250>",
+    "expected": "windows-1250"
+  },
+  {
+    "html": "<meta charset='ISO-8859-2'>",
+    "expected": "ISO-8859-2"
+  },
+  {
+    "html": "<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=Shift_JIS\">",
+    "expected": "Shift_JIS"
+  },
+  {
+    "html": "<meta name=\"x\" content=\"y\"><meta charset=\"koi8-r\">",
+    "expected": "koi8-r"
+  },
+  {
+    "html": "<html><head><title>no charset</title>",
+    "expected": null
+  },
+  {
+    "html": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            <meta charset=\"late\">",
+    "expected": null
+  }
+]

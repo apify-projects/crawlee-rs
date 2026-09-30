@@ -1,0 +1,59 @@
+[
+  {
+    "value": {
+      "a": 1,
+      "b": "text",
+      "c": [
+        1,
+        2,
+        {
+          "d": null
+        }
+      ],
+      "e": {},
+      "f": []
+    },
+    "text": "{\n  \"a\": 1,\n  \"b\": \"text\",\n  \"c\": [\n    1,\n    2,\n    {\n      \"d\": null\n    }\n  ],\n  \"e\": {},\n  \"f\": []\n}"
+  },
+  {
+    "value": {
+      "unicode": "Žluťoučký kůň ✓ 😀",
+      "escapes": "quote \" backslash \\ newline \n tab \t slash /",
+      "control": "\u0001"
+    },
+    "text": "{\n  \"unicode\": \"Žluťoučký kůň ✓ 😀\",\n  \"escapes\": \"quote \\\" backslash \\\\ newline \\n tab \\t slash /\",\n  \"control\": \"\\u0001\"\n}"
+  },
+  {
+    "value": {
+      "integer": 42,
+      "negative": -7,
+      "float": 0.1,
+      "exp": 1e+21,
+      "small": 1e-7,
+      "big": 12345678901234567000,
+      "float_int": 1
+    },
+    "text": "{\n  \"integer\": 42,\n  \"negative\": -7,\n  \"float\": 0.1,\n  \"exp\": 1e+21,\n  \"small\": 1e-7,\n  \"big\": 12345678901234567000,\n  \"float_int\": 1\n}"
+  },
+  {
+    "value": {
+      "nested": {
+        "deeper": {
+          "deepest": [
+            true,
+            false
+          ]
+        }
+      }
+    },
+    "text": "{\n  \"nested\": {\n    \"deeper\": {\n      \"deepest\": [\n        true,\n        false\n      ]\n    }\n  }\n}"
+  },
+  {
+    "value": [
+      "top",
+      "level",
+      "array"
+    ],
+    "text": "[\n  \"top\",\n  \"level\",\n  \"array\"\n]"
+  }
+]

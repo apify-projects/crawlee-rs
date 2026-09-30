@@ -1,0 +1,794 @@
+[
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "http://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "http://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "http://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://shop.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://shop.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com:8443/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com:8443/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com:8443/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.org/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://bar.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://www.example.com/start",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://www.example.com/start",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://www.example.com/start",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://www.example.com/start",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://shop.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com:8443/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.org/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://bar.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "http://127.0.0.1:8080/",
+    "target": "https://foo.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "http://www.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "http://www.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://shop.example.com/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://shop.example.com/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com:8443/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com:8443/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com./x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://www.example.com./x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.org/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://example.org/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:8080/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "http://127.0.0.1:9090/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://bar.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://bar.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://bar.github.io/x",
+    "expected": false
+  },
+  {
+    "strategy": "all",
+    "origin": "https://foo.github.io/",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-hostname",
+    "origin": "https://foo.github.io/",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-domain",
+    "origin": "https://foo.github.io/",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  },
+  {
+    "strategy": "same-origin",
+    "origin": "https://foo.github.io/",
+    "target": "https://foo.github.io/x",
+    "expected": true
+  }
+]

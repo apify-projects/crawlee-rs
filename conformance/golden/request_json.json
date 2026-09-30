@@ -1,0 +1,117 @@
+[
+  {
+    "options": {
+      "url": "https://example.com/a"
+    },
+    "json": {
+      "url": "https://example.com/a",
+      "uniqueKey": "https://example.com/a",
+      "method": "GET",
+      "noRetry": false,
+      "retryCount": 0,
+      "errorMessages": [],
+      "headers": {},
+      "userData": {}
+    }
+  },
+  {
+    "options": {
+      "url": "https://example.com/b",
+      "label": "DETAIL",
+      "userData": {
+        "page": 2,
+        "tags": [
+          "x"
+        ],
+        "label": "DETAIL"
+      }
+    },
+    "json": {
+      "url": "https://example.com/b",
+      "uniqueKey": "https://example.com/b",
+      "method": "GET",
+      "noRetry": false,
+      "retryCount": 0,
+      "errorMessages": [],
+      "headers": {},
+      "userData": {
+        "page": 2,
+        "tags": [
+          "x"
+        ],
+        "label": "DETAIL"
+      }
+    }
+  },
+  {
+    "options": {
+      "url": "https://example.com/c",
+      "crawlDepth": 3,
+      "maxRetries": 5,
+      "skipNavigation": true,
+      "sessionId": "session_1"
+    },
+    "json": {
+      "url": "https://example.com/c",
+      "uniqueKey": "https://example.com/c",
+      "method": "GET",
+      "noRetry": false,
+      "retryCount": 0,
+      "errorMessages": [],
+      "headers": {},
+      "userData": {
+        "__crawlee": {
+          "skipNavigation": true,
+          "maxRetries": 5,
+          "crawlDepth": 3,
+          "sessionId": "session_1"
+        }
+      }
+    }
+  },
+  {
+    "options": {
+      "url": "https://example.com/d",
+      "method": "POST",
+      "payload": "q=1",
+      "headers": {
+        "X-Test": "1"
+      },
+      "noRetry": true
+    },
+    "json": {
+      "url": "https://example.com/d",
+      "uniqueKey": "https://example.com/d",
+      "method": "POST",
+      "payload": "q=1",
+      "noRetry": true,
+      "retryCount": 0,
+      "errorMessages": [],
+      "headers": {
+        "X-Test": "1"
+      },
+      "userData": {}
+    }
+  },
+  {
+    "options": {
+      "url": "https://example.com/e",
+      "uniqueKey": "custom-key",
+      "enqueueStrategy": "same-domain"
+    },
+    "json": {
+      "url": "https://example.com/e",
+      "uniqueKey": "custom-key",
+      "method": "GET",
+      "noRetry": false,
+      "retryCount": 0,
+      "errorMessages": [],
+      "headers": {},
+      "userData": {
+        "__crawlee": {
+          "enqueueStrategy": "same-domain"
+        }
+      }
+    }
+  }
+]

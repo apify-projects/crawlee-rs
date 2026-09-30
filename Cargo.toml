@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/apify-projects/crawlee-rs"
+authors = ["Apify Technologies s.r.o."]
+
+[workspace.dependencies]
+crawlee-utils = { path = "crates/crawlee-utils", version = "0.1.0" }
+crawlee-core = { path = "crates/crawlee-core", version = "0.1.0" }
+crawlee-http-client = { path = "crates/crawlee-http-client", version = "0.1.0" }
+crawlee-basic = { path = "crates/crawlee-basic", version = "0.1.0" }
+crawlee-http = { path = "crates/crawlee-http", version = "0.1.0" }
+
+anyhow = "1"
+async-trait = "0.1"
+base64 = "0.22"
+bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+cookie_store = "0.22"
+encoding_rs = "0.8"
+futures = "0.3"
+globset = "0.4"
+http = "1"
+indexmap = { version = "2", features = ["serde"] }
+lol_html = "3"
+mime = "0.3"
+parking_lot = "0.12"
+psl = "2"
+rand = "0.9"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "gzip", "brotli", "deflate", "socks"] }
+scraper = { version = "0.27", features = ["atomic"] }
+selectors = "0.26"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
+sha2 = "0.10"
+simdutf8 = "0.1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing = "0.1"
+url = "2"
+web_atoms = "0.2"
+uuid = { version = "1", features = ["v4"] }
+
+# dev
+axum = "0.8"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"
+debug = true

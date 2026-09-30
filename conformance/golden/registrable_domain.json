@@ -1,0 +1,102 @@
+[
+  {
+    "hostname": "example.com",
+    "expected": "example.com"
+  },
+  {
+    "hostname": "www.example.com",
+    "expected": "example.com"
+  },
+  {
+    "hostname": "a.b.c.example.com",
+    "expected": "example.com"
+  },
+  {
+    "hostname": "example.co.uk",
+    "expected": "example.co.uk"
+  },
+  {
+    "hostname": "shop.example.co.uk",
+    "expected": "example.co.uk"
+  },
+  {
+    "hostname": "co.uk",
+    "expected": null
+  },
+  {
+    "hostname": "com",
+    "expected": null
+  },
+  {
+    "hostname": "foo.github.io",
+    "expected": "github.io"
+  },
+  {
+    "hostname": "github.io",
+    "expected": "github.io"
+  },
+  {
+    "hostname": "foo.blogspot.com",
+    "expected": "blogspot.com"
+  },
+  {
+    "hostname": "something.appspot.com",
+    "expected": "appspot.com"
+  },
+  {
+    "hostname": "example.com.",
+    "expected": "example.com"
+  },
+  {
+    "hostname": "localhost",
+    "expected": null
+  },
+  {
+    "hostname": "my.localhost",
+    "expected": "my.localhost"
+  },
+  {
+    "hostname": "intranet",
+    "expected": null
+  },
+  {
+    "hostname": "server.local",
+    "expected": "server.local"
+  },
+  {
+    "hostname": "foo.bar.unknowntld",
+    "expected": "bar.unknowntld"
+  },
+  {
+    "hostname": "127.0.0.1",
+    "expected": null
+  },
+  {
+    "hostname": "[::1]",
+    "expected": null
+  },
+  {
+    "hostname": "xn--mnchen-3ya.de",
+    "expected": "xn--mnchen-3ya.de"
+  },
+  {
+    "hostname": "www.xn--mnchen-3ya.de",
+    "expected": "xn--mnchen-3ya.de"
+  },
+  {
+    "hostname": "foo.city.kawasaki.jp",
+    "expected": "city.kawasaki.jp"
+  },
+  {
+    "hostname": "www.ck",
+    "expected": "www.ck"
+  },
+  {
+    "hostname": "foo.www.ck",
+    "expected": "www.ck"
+  },
+  {
+    "hostname": "sub.example.pvt.k12.ma.us",
+    "expected": "example.pvt.k12.ma.us"
+  }
+]

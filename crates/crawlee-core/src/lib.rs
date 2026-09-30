@@ -1,0 +1,28 @@
+//! Core types of crawlee-rs: [`Request`], the storages ([`Dataset`], [`KeyValueStore`],
+//! [`RequestQueue`]), the storage backend contract and request-scoped storage transactions.
+
+pub mod errors;
+pub mod request;
+pub mod services;
+pub mod storage;
+pub mod transaction;
+
+pub use crate::errors::{
+    CriticalError, NonRetryableError, RequestThrottledError, RetryRequestError, SessionError, StorageError,
+    StorageResult,
+};
+pub use crate::request::{Request, RequestBuilder};
+pub use crate::services::Services;
+pub use crate::storage::backend::{StorageBackend, StorageIdentifier};
+pub use crate::storage::dataset::Dataset;
+pub use crate::storage::key_value_store::KeyValueStore;
+pub use crate::storage::memory::MemoryStorageBackend;
+pub use crate::storage::request_queue::{RequestManager, RequestQueue};
+pub use crate::transaction::StorageTransaction;
+
+pub use crawlee_utils::EnqueueStrategy;
+
+/// The current time as an ISO 8601 string with millisecond precision, like `Date.toISOString()`.
+pub fn now_iso() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}

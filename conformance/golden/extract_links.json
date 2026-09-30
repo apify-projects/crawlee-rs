@@ -1,0 +1,183 @@
+[
+  {
+    "id": "basic",
+    "html": "<a href=\"/a\">A</a><a href=\"b\">B</a><a href=\"https://other.dev/c\">C</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/dir/page",
+    "expected": [
+      "https://example.com/a",
+      "https://example.com/dir/b",
+      "https://other.dev/c"
+    ]
+  },
+  {
+    "id": "entities",
+    "html": "<a href=\"?a=1&amp;b=2\">x</a><a href=\"&#47;slash\">y</a><a href=\"/q?x=1&copy=2\">z</a><a href=\"/e?a&lt;b\">w</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/?a=1&b=2",
+      "https://example.com/slash",
+      "https://example.com/q?x=1&copy=2",
+      "https://example.com/e?a%3Cb"
+    ]
+  },
+  {
+    "id": "empty-and-missing",
+    "html": "<a href=\"\">e</a><a>none</a><a href=\"   \">spaces</a><a href=\"#top\">frag</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/p",
+    "expected": [
+      "https://example.com/p",
+      "https://example.com/p#top"
+    ]
+  },
+  {
+    "id": "base-href",
+    "html": "<head><base href=\"/root/\"></head><a href=\"x\">X</a><a href=\"/abs\">abs</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/dir/page",
+    "expected": [
+      "https://example.com/root/x",
+      "https://example.com/abs"
+    ]
+  },
+  {
+    "id": "base-after-links",
+    "html": "<a href=\"x\">X</a><base href=\"https://cdn.example.com/b/\">",
+    "selector": "a",
+    "baseUrl": "https://example.com/dir/page",
+    "expected": [
+      "https://cdn.example.com/b/x"
+    ]
+  },
+  {
+    "id": "two-bases",
+    "html": "<base href=\"/first/\"><base href=\"/second/\"><a href=\"x\">X</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/first/x"
+    ]
+  },
+  {
+    "id": "schemes",
+    "html": "<a href=\"mailto:a@b.c\">m</a><a href=\"javascript:void(0)\">js</a><a href=\"tel:+420\">t</a><a href=\"//proto-relative.dev/x\">p</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "mailto:a@b.c",
+      "javascript:void(0)",
+      "tel:+420",
+      "https://proto-relative.dev/x"
+    ]
+  },
+  {
+    "id": "whitespace",
+    "html": "<a href=\"  /padded  \">p</a><a href=\"/tab\tinside\">t</a><a href=\"/new\nline\">n</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/padded",
+      "https://example.com/tabinside",
+      "https://example.com/newline"
+    ]
+  },
+  {
+    "id": "unicode",
+    "html": "<a href=\"/ümlaut\">u</a><a href=\"https://münchen.de/x\">idn</a><a href=\"/a b\">space</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/%C3%BCmlaut",
+      "https://xn--mnchen-3ya.de/x",
+      "https://example.com/a%20b"
+    ]
+  },
+  {
+    "id": "uppercase-tags",
+    "html": "<A HREF=\"/upper\">U</A><a Href=\"/mixed\">M</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/upper",
+      "https://example.com/mixed"
+    ]
+  },
+  {
+    "id": "selector-class",
+    "html": "<a class=\"next\" href=\"/2\">n</a><a href=\"/other\">o</a><div class=\"next\"><a href=\"/in-div\">d</a></div>",
+    "selector": "a.next",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/2"
+    ]
+  },
+  {
+    "id": "selector-descendant",
+    "html": "<nav><a href=\"/nav\">n</a></nav><main><a href=\"/main\">m</a></main>",
+    "selector": "nav a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/nav"
+    ]
+  },
+  {
+    "id": "selector-attribute",
+    "html": "<a href=\"/a\" rel=\"next\">a</a><a href=\"/b\">b</a><link rel=\"next\" href=\"/link\">",
+    "selector": "[rel=next]",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/a",
+      "https://example.com/link"
+    ]
+  },
+  {
+    "id": "unclosed-quotes",
+    "html": "<a href=\"/ok\">ok</a><a href=\"/broken>broken</a><a href=\"/after\">after</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/ok",
+      "https://example.com/broken%3Ebroken%3C/a%3E%3Ca%20href="
+    ]
+  },
+  {
+    "id": "nested-anchors",
+    "html": "<a href=\"/outer\"><a href=\"/inner\">i</a></a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/outer",
+      "https://example.com/inner"
+    ]
+  },
+  {
+    "id": "links-in-script-and-comments",
+    "html": "<script>var s = \"<a href='/in-script'>x</a>\";</script><!-- <a href=\"/in-comment\">c</a> --><a href=\"/real\">r</a>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/real"
+    ]
+  },
+  {
+    "id": "template-and-noscript",
+    "html": "<template><a href=\"/in-template\">t</a></template><noscript><a href=\"/in-noscript\">n</a></noscript>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/in-template",
+      "https://example.com/in-noscript"
+    ]
+  },
+  {
+    "id": "svg-links",
+    "html": "<svg><a href=\"/svg-href\">s</a><a xlink:href=\"/svg-xlink\">x</a></svg>",
+    "selector": "a",
+    "baseUrl": "https://example.com/",
+    "expected": [
+      "https://example.com/svg-href"
+    ]
+  }
+]

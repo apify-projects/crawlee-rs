@@ -1,0 +1,21 @@
+[package]
+name = "crawlee-utils"
+description = "Shared utilities for crawlee-rs: URL normalization, enqueue strategies, streaming link extraction."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+globset.workspace = true
+lol_html.workspace = true
+psl.workspace = true
+regex.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+url.workspace = true
+web_atoms.workspace = true
+
+[lints]
+workspace = true

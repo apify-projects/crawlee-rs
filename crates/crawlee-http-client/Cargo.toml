@@ -1,0 +1,31 @@
+[package]
+name = "crawlee-http-client"
+description = "Pluggable HTTP client for crawlee-rs: redirect handling, session cookie jars and a reqwest-based transport."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["reqwest"]
+reqwest = ["dep:reqwest"]
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+cookie_store.workspace = true
+http.workspace = true
+parking_lot.workspace = true
+reqwest = { workspace = true, optional = true }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+
+[lints]
+workspace = true

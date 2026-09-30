@@ -1,0 +1,422 @@
+[
+  {
+    "input": "https://example.com",
+    "keepFragment": false,
+    "expected": "https://example.com"
+  },
+  {
+    "input": "https://example.com",
+    "keepFragment": true,
+    "expected": "https://example.com"
+  },
+  {
+    "input": "https://example.com/",
+    "keepFragment": false,
+    "expected": "https://example.com"
+  },
+  {
+    "input": "https://example.com/",
+    "keepFragment": true,
+    "expected": "https://example.com"
+  },
+  {
+    "input": "HTTP://www.EXAMPLE.com/something/",
+    "keepFragment": false,
+    "expected": "http://www.example.com/something"
+  },
+  {
+    "input": "HTTP://www.EXAMPLE.com/something/",
+    "keepFragment": true,
+    "expected": "http://www.example.com/something"
+  },
+  {
+    "input": "https://example.com/a/b/",
+    "keepFragment": false,
+    "expected": "https://example.com/a/b"
+  },
+  {
+    "input": "https://example.com/a/b/",
+    "keepFragment": true,
+    "expected": "https://example.com/a/b"
+  },
+  {
+    "input": "https://example.com/a//",
+    "keepFragment": false,
+    "expected": "https://example.com/a/"
+  },
+  {
+    "input": "https://example.com/a//",
+    "keepFragment": true,
+    "expected": "https://example.com/a/"
+  },
+  {
+    "input": "https://example.com/?b=2&a=1",
+    "keepFragment": false,
+    "expected": "https://example.com?a=1&b=2"
+  },
+  {
+    "input": "https://example.com/?b=2&a=1",
+    "keepFragment": true,
+    "expected": "https://example.com?a=1&b=2"
+  },
+  {
+    "input": "https://example.com/?b=2&a=1&a=0",
+    "keepFragment": false,
+    "expected": "https://example.com?a=1&a=0&b=2"
+  },
+  {
+    "input": "https://example.com/?b=2&a=1&a=0",
+    "keepFragment": true,
+    "expected": "https://example.com?a=1&a=0&b=2"
+  },
+  {
+    "input": "https://example.com/?utm_source=x&utm_medium=y&id=1",
+    "keepFragment": false,
+    "expected": "https://example.com?id=1"
+  },
+  {
+    "input": "https://example.com/?utm_source=x&utm_medium=y&id=1",
+    "keepFragment": true,
+    "expected": "https://example.com?id=1"
+  },
+  {
+    "input": "https://example.com/?UTM_source=x",
+    "keepFragment": false,
+    "expected": "https://example.com?UTM_source=x"
+  },
+  {
+    "input": "https://example.com/?UTM_source=x",
+    "keepFragment": true,
+    "expected": "https://example.com?UTM_source=x"
+  },
+  {
+    "input": "https://example.com/a?q=hello%20world",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=hello+world"
+  },
+  {
+    "input": "https://example.com/a?q=hello%20world",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=hello+world"
+  },
+  {
+    "input": "https://example.com/a?q=hello+world",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=hello+world"
+  },
+  {
+    "input": "https://example.com/a?q=hello+world",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=hello+world"
+  },
+  {
+    "input": "https://example.com/a?q=a%2Bb",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=a%2Bb"
+  },
+  {
+    "input": "https://example.com/a?q=a%2Bb",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=a%2Bb"
+  },
+  {
+    "input": "https://example.com/a?flag",
+    "keepFragment": false,
+    "expected": "https://example.com/a?flag="
+  },
+  {
+    "input": "https://example.com/a?flag",
+    "keepFragment": true,
+    "expected": "https://example.com/a?flag="
+  },
+  {
+    "input": "https://example.com/a?",
+    "keepFragment": false,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com/a?",
+    "keepFragment": true,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com/a?=value",
+    "keepFragment": false,
+    "expected": "https://example.com/a?=value"
+  },
+  {
+    "input": "https://example.com/a?=value",
+    "keepFragment": true,
+    "expected": "https://example.com/a?=value"
+  },
+  {
+    "input": "https://example.com/a?q=%E2%9C%93",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=%E2%9C%93"
+  },
+  {
+    "input": "https://example.com/a?q=%E2%9C%93",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=%E2%9C%93"
+  },
+  {
+    "input": "https://example.com/a?q=✓&z=ž",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=%E2%9C%93&z=%C5%BE"
+  },
+  {
+    "input": "https://example.com/a?q=✓&z=ž",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=%E2%9C%93&z=%C5%BE"
+  },
+  {
+    "input": "https://example.com/a?b=1&B=2&a=3",
+    "keepFragment": false,
+    "expected": "https://example.com/a?B=2&a=3&b=1"
+  },
+  {
+    "input": "https://example.com/a?b=1&B=2&a=3",
+    "keepFragment": true,
+    "expected": "https://example.com/a?B=2&a=3&b=1"
+  },
+  {
+    "input": "https://example.com/a?%F0%9F%98%80=1&%EF%BD%81=2",
+    "keepFragment": false,
+    "expected": "https://example.com/a?%F0%9F%98%80=1&%EF%BD%81=2"
+  },
+  {
+    "input": "https://example.com/a?%F0%9F%98%80=1&%EF%BD%81=2",
+    "keepFragment": true,
+    "expected": "https://example.com/a?%F0%9F%98%80=1&%EF%BD%81=2"
+  },
+  {
+    "input": "https://example.com/a#frag",
+    "keepFragment": false,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com/a#frag",
+    "keepFragment": true,
+    "expected": "https://example.com/a#frag"
+  },
+  {
+    "input": "https://example.com/a#",
+    "keepFragment": false,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com/a#",
+    "keepFragment": true,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com/a?x=1#frag",
+    "keepFragment": false,
+    "expected": "https://example.com/a?x=1"
+  },
+  {
+    "input": "https://example.com/a?x=1#frag",
+    "keepFragment": true,
+    "expected": "https://example.com/a?x=1#frag"
+  },
+  {
+    "input": "https://example.com:443/a",
+    "keepFragment": false,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://example.com:443/a",
+    "keepFragment": true,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "http://example.com:80/a",
+    "keepFragment": false,
+    "expected": "http://example.com/a"
+  },
+  {
+    "input": "http://example.com:80/a",
+    "keepFragment": true,
+    "expected": "http://example.com/a"
+  },
+  {
+    "input": "https://example.com:8443/a",
+    "keepFragment": false,
+    "expected": "https://example.com:8443/a"
+  },
+  {
+    "input": "https://example.com:8443/a",
+    "keepFragment": true,
+    "expected": "https://example.com:8443/a"
+  },
+  {
+    "input": "https://user:pass@example.com/a",
+    "keepFragment": false,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://user:pass@example.com/a",
+    "keepFragment": true,
+    "expected": "https://example.com/a"
+  },
+  {
+    "input": "https://EXAMPLE.com/A/B",
+    "keepFragment": false,
+    "expected": "https://example.com/A/B"
+  },
+  {
+    "input": "https://EXAMPLE.com/A/B",
+    "keepFragment": true,
+    "expected": "https://example.com/A/B"
+  },
+  {
+    "input": "https://example.com/a%2fb",
+    "keepFragment": false,
+    "expected": "https://example.com/a%2fb"
+  },
+  {
+    "input": "https://example.com/a%2fb",
+    "keepFragment": true,
+    "expected": "https://example.com/a%2fb"
+  },
+  {
+    "input": "https://example.com/a b",
+    "keepFragment": false,
+    "expected": "https://example.com/a%20b"
+  },
+  {
+    "input": "https://example.com/a b",
+    "keepFragment": true,
+    "expected": "https://example.com/a%20b"
+  },
+  {
+    "input": "https://example.com/ümlaut",
+    "keepFragment": false,
+    "expected": "https://example.com/%C3%BCmlaut"
+  },
+  {
+    "input": "https://example.com/ümlaut",
+    "keepFragment": true,
+    "expected": "https://example.com/%C3%BCmlaut"
+  },
+  {
+    "input": "https://xn--mnchen-3ya.de/",
+    "keepFragment": false,
+    "expected": "https://xn--mnchen-3ya.de"
+  },
+  {
+    "input": "https://xn--mnchen-3ya.de/",
+    "keepFragment": true,
+    "expected": "https://xn--mnchen-3ya.de"
+  },
+  {
+    "input": "https://münchen.de/",
+    "keepFragment": false,
+    "expected": "https://xn--mnchen-3ya.de"
+  },
+  {
+    "input": "https://münchen.de/",
+    "keepFragment": true,
+    "expected": "https://xn--mnchen-3ya.de"
+  },
+  {
+    "input": "https://example.com/a/../b/./c",
+    "keepFragment": false,
+    "expected": "https://example.com/b/c"
+  },
+  {
+    "input": "https://example.com/a/../b/./c",
+    "keepFragment": true,
+    "expected": "https://example.com/b/c"
+  },
+  {
+    "input": "https://[::1]:8080/a/",
+    "keepFragment": false,
+    "expected": "https://[::1]:8080/a"
+  },
+  {
+    "input": "https://[::1]:8080/a/",
+    "keepFragment": true,
+    "expected": "https://[::1]:8080/a"
+  },
+  {
+    "input": "http://127.0.0.1:3000/x/",
+    "keepFragment": false,
+    "expected": "http://127.0.0.1:3000/x"
+  },
+  {
+    "input": "http://127.0.0.1:3000/x/",
+    "keepFragment": true,
+    "expected": "http://127.0.0.1:3000/x"
+  },
+  {
+    "input": "  https://example.com/trim  ",
+    "keepFragment": false,
+    "expected": "https://example.com/trim"
+  },
+  {
+    "input": "  https://example.com/trim  ",
+    "keepFragment": true,
+    "expected": "https://example.com/trim"
+  },
+  {
+    "input": "https://example.com/a?q=1;2&x=[1]",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=1%3B2&x=%5B1%5D"
+  },
+  {
+    "input": "https://example.com/a?q=1;2&x=[1]",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=1%3B2&x=%5B1%5D"
+  },
+  {
+    "input": "https://example.com/a?q=%zz",
+    "keepFragment": false,
+    "expected": "https://example.com/a?q=%25zz"
+  },
+  {
+    "input": "https://example.com/a?q=%zz",
+    "keepFragment": true,
+    "expected": "https://example.com/a?q=%25zz"
+  },
+  {
+    "input": "not a url",
+    "keepFragment": false,
+    "expected": null
+  },
+  {
+    "input": "not a url",
+    "keepFragment": true,
+    "expected": null
+  },
+  {
+    "input": "",
+    "keepFragment": false,
+    "expected": null
+  },
+  {
+    "input": "",
+    "keepFragment": true,
+    "expected": null
+  },
+  {
+    "input": "ftp://files.example.com/pub/",
+    "keepFragment": false,
+    "expected": "ftp://files.example.com/pub"
+  },
+  {
+    "input": "ftp://files.example.com/pub/",
+    "keepFragment": true,
+    "expected": "ftp://files.example.com/pub"
+  },
+  {
+    "input": "mailto:someone@example.com",
+    "keepFragment": false,
+    "expected": "mailto://someone@example.com"
+  },
+  {
+    "input": "mailto:someone@example.com",
+    "keepFragment": true,
+    "expected": "mailto://someone@example.com"
+  }
+]

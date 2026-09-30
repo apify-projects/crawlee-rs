@@ -316,6 +316,36 @@ where
         Ok(self.shared().await?.request_manager.clone())
     }
 
+    /// Writes the default dataset to a file, like `crawler.exportData()` in Crawlee for JS: a
+    /// JSON array for `.json`, one object per line for `.jsonl`. Returns the number of items.
+    pub async fn export_data(&self, path: impl AsRef<std::path::Path>) -> anyhow::Result<usize> {
+        let path = path.as_ref();
+        let items: Vec<serde_json::Value> = self.dataset().await?.get_all().await?;
+
+        let content = match path.extension().and_then(|ext| ext.to_str()) {
+            Some("json") => {
+                let mut text = serde_json::to_string_pretty(&items)?;
+                text.push('\n');
+                text
+            }
+            Some("jsonl") => {
+                let mut text = String::new();
+                for item in &items {
+                    text.push_str(&serde_json::to_string(item)?);
+                    text.push('\n');
+                }
+                text
+            }
+            _ => anyhow::bail!("unsupported export format of '{}': use a .json or .jsonl file", path.display()),
+        };
+
+        if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(path, content).await?;
+        Ok(items.len())
+    }
+
     /// Adds `requests` and crawls until the queue is finished (or a limit is reached).
     ///
     /// Returns an error only for a critical failure (a [`CriticalError`], a missing route or a

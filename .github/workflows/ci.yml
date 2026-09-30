@@ -29,3 +29,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
+
+  templates:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        template: [getting-started, html, json-api, empty]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: templates/${{ matrix.template }}
+      - run: ./templates/check-manifests.sh
+      - run: cargo clippy --manifest-path templates/${{ matrix.template }}/Cargo.toml

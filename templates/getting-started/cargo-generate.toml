@@ -1,0 +1,8 @@
+[template]
+cargo_generate_version = ">=0.21"
+ignore = ["target", "storage", "Cargo.lock"]
+
+[hooks]
+# Replaces Cargo.toml (path dependency, for running inside the crawlee-rs repo) with
+# Cargo.generated.toml (git dependency) in the generated project.
+post = ["swap-manifest.rhai"]

@@ -39,3 +39,6 @@ pub use crawlee_core::errors::{
 };
 pub use crawlee_core::{Dataset, EnqueueStrategy, KeyValueStore, Request, RequestQueue, Services, StorageIdentifier};
 pub use crawlee_http::{Document, HtmlContext, HtmlCrawler, HttpContext, HttpCrawler, HttpCrawlerOptions};
+
+/// The URL type used throughout the API (re-exported from the `url` crate).
+pub use url::Url;

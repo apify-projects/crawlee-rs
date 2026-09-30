@@ -304,3 +304,33 @@ async fn requests_added_while_running_are_picked_up() {
     depths.sort();
     assert_eq!(depths, [0, 1, 2, 3]);
 }
+
+#[tokio::test]
+async fn export_data_writes_json_and_jsonl() {
+    let crawler = BasicCrawler::builder()
+        .services(services())
+        .max_concurrency(1)
+        .request_handler(|ctx: BasicContext| async move {
+            ctx.push_data(&json!({ "url": ctx.request().url }))?;
+            Ok(())
+        })
+        .build()
+        .unwrap();
+    crawler.run(["https://a.dev/1", "https://a.dev/2"]).await.unwrap();
+
+    let dir = std::env::temp_dir().join(format!("crawlee-export-{}", std::process::id()));
+    let json_path = dir.join("nested").join("results.json");
+    assert_eq!(crawler.export_data(&json_path).await.unwrap(), 2);
+    let exported: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(&json_path).unwrap()).unwrap();
+    assert_eq!(exported, vec![json!({ "url": "https://a.dev/1" }), json!({ "url": "https://a.dev/2" })]);
+
+    let jsonl_path = dir.join("results.jsonl");
+    crawler.export_data(&jsonl_path).await.unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&jsonl_path).unwrap(),
+        "{\"url\":\"https://a.dev/1\"}\n{\"url\":\"https://a.dev/2\"}\n"
+    );
+
+    assert!(crawler.export_data(dir.join("results.csv")).await.is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}

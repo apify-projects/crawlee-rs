@@ -1,0 +1,19 @@
+[package]
+name = "{{project-name}}"
+description = "Crawls crawlee.dev with HtmlCrawler: page titles, link following, results exported to JSON."
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+anyhow = "1"
+crawlee = { git = "https://github.com/apify-projects/crawlee-rs" }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

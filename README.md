@@ -30,6 +30,19 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
+## Try it
+
+These templates are ready to run; see [templates/README.md](templates/README.md):
+
+```sh
+cd templates/getting-started && cargo run   # HtmlCrawler on crawlee.dev → storage/results.json
+cd templates/html && cargo run              # router with list and detail pages
+cd templates/json-api && cargo run          # typed JSON from the Hacker News API
+```
+
+To start your own project from one of them:
+`cargo generate --git https://github.com/apify-projects/crawlee-rs templates/html --name my-crawler`.
+
 ## Benchmark
 
 This is the same workload in both implementations, crawling a local fixture site of 58 KB product

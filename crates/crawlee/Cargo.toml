@@ -15,6 +15,7 @@ crawlee-core.workspace = true
 crawlee-http.workspace = true
 crawlee-http-client.workspace = true
 crawlee-utils.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true

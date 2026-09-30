@@ -60,11 +60,12 @@ impl ReqwestTransport {
             .pool_idle_timeout(self.pool_idle_timeout)
             .tcp_nodelay(true)
             .tls_danger_accept_invalid_certs(options.ignore_tls_errors);
-        builder = match &options.proxy_url {
-            Some(proxy) => builder
-                .proxy(reqwest::Proxy::all(proxy.as_str()).map_err(|err| HttpClientError::Proxy(err.to_string()))?),
-            None => builder.no_proxy(),
-        };
+        // Without an explicit proxy, the system proxy settings (`HTTPS_PROXY`, `NO_PROXY`, ...)
+        // apply, as with curl.
+        if let Some(proxy) = &options.proxy_url {
+            builder = builder
+                .proxy(reqwest::Proxy::all(proxy.as_str()).map_err(|err| HttpClientError::Proxy(err.to_string()))?);
+        }
         let client = builder.build().map_err(|err| HttpClientError::Other(err.to_string()))?;
 
         Ok(self.clients.lock().entry(key).or_insert(client).clone())

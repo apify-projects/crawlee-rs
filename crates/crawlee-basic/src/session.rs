@@ -2,13 +2,22 @@
 //!
 //! A session is the unit of identity the crawler rotates when it gets blocked: it carries its
 //! proxy and cookies and accumulates an error score.
+//!
+//! The pool is a [`PersistedState`]: the crawler saves it under `CRAWLEE_SESSION_POOL_STATE_{id}`
+//! in the record format of Crawlee for JS (cookies included, in tough-cookie's format), so a
+//! resumed crawl keeps its sessions.
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use parking_lot::Mutex;
 use rand::Rng as _;
+use serde_json::{Map, Value, json};
+use url::Url;
 
+use crawlee_core::recoverable_state::{BoxError, PersistedState};
 use crawlee_http_client::CookieJar;
 
 use crate::proxy::{ProxyInfo, ProxySource};
@@ -50,21 +59,105 @@ pub struct Session {
     id: String,
     cookie_jar: Arc<CookieJar>,
     proxy_info: Option<ProxyInfo>,
-    created_at: Instant,
+    created_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
     options: SessionOptions,
+    user_data: Mutex<Map<String, Value>>,
     state: Mutex<SessionState>,
+}
+
+fn iso(time: DateTime<Utc>) -> String {
+    time.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+fn proxy_info_json(proxy: &ProxyInfo) -> Value {
+    json!({
+        "url": proxy.url.as_str(),
+        "hostname": proxy.hostname,
+        "port": proxy.port,
+        "username": proxy.username,
+        "password": proxy.password,
+    })
 }
 
 impl Session {
     pub fn new(id: String, proxy_info: Option<ProxyInfo>, options: SessionOptions) -> Self {
+        let created_at = Utc::now();
+        let expires_at = created_at + chrono::Duration::from_std(options.max_age).unwrap_or(chrono::Duration::MAX);
         Session {
             id,
             cookie_jar: Arc::new(CookieJar::new()),
             proxy_info,
-            created_at: Instant::now(),
+            created_at,
+            expires_at,
             options,
+            user_data: Mutex::new(Map::new()),
             state: Mutex::new(SessionState { error_score: 0.0, usage_count: 0, retired: false }),
         }
+    }
+
+    /// The session as Crawlee for JS saves it (`Session.getState()`).
+    pub fn to_state(&self) -> Value {
+        let state = self.state.lock();
+        json!({
+            "id": self.id,
+            "cookieJar": self.cookie_jar.to_json(),
+            "proxyInfo": self.proxy_info.as_ref().map(proxy_info_json),
+            "userData": *self.user_data.lock(),
+            "fingerprint": null,
+            "maxErrorScore": self.options.max_error_score,
+            "errorScoreDecrement": self.options.error_score_decrement,
+            "expiresAt": iso(self.expires_at),
+            "createdAt": iso(self.created_at),
+            "usageCount": state.usage_count,
+            "maxUsageCount": self.options.max_usage_count,
+            "errorScore": state.error_score,
+            "retired": state.retired,
+        })
+    }
+
+    /// A session from [`to_state`](Self::to_state) (or a session saved by Crawlee for JS).
+    /// Limits missing from the record come from `options`.
+    pub fn from_state(record: &Value, options: &SessionOptions) -> Result<Self, BoxError> {
+        let time = |field: &str| -> Result<DateTime<Utc>, BoxError> {
+            let text = record[field].as_str().ok_or_else(|| format!("the session has no `{field}`"))?;
+            Ok(DateTime::parse_from_rfc3339(text)?.with_timezone(&Utc))
+        };
+        let id = record["id"].as_str().ok_or("the session has no `id`")?.to_owned();
+        let proxy_info = record["proxyInfo"]["url"].as_str().map(Url::parse).transpose()?.map(ProxyInfo::from_url);
+        let mut options = options.clone();
+        if let Some(value) = record["maxErrorScore"].as_f64() {
+            options.max_error_score = value;
+        }
+        if let Some(value) = record["errorScoreDecrement"].as_f64() {
+            options.error_score_decrement = value;
+        }
+        if let Some(value) = record["maxUsageCount"].as_u64() {
+            options.max_usage_count = u32::try_from(value).unwrap_or(u32::MAX);
+        }
+        let (created_at, expires_at) = (time("createdAt")?, time("expiresAt")?);
+        if let Ok(age) = (expires_at - created_at).to_std() {
+            options.max_age = age;
+        }
+        Ok(Session {
+            id,
+            cookie_jar: Arc::new(CookieJar::from_json(&record["cookieJar"])),
+            proxy_info,
+            created_at,
+            expires_at,
+            options,
+            user_data: Mutex::new(record["userData"].as_object().cloned().unwrap_or_default()),
+            state: Mutex::new(SessionState {
+                error_score: record["errorScore"].as_f64().unwrap_or(0.0),
+                usage_count: record["usageCount"].as_u64().map_or(0, |n| u32::try_from(n).unwrap_or(u32::MAX)),
+                retired: record["retired"].as_bool().unwrap_or(false),
+            }),
+        })
+    }
+
+    /// Custom data kept with the session (and saved with it).
+    pub fn user_data(&self) -> parking_lot::MutexGuard<'_, Map<String, Value>> {
+        self.user_data.lock()
     }
 
     pub fn id(&self) -> &str {
@@ -92,7 +185,7 @@ impl Session {
     }
 
     pub fn is_expired(&self) -> bool {
-        self.created_at.elapsed() >= self.options.max_age
+        Utc::now() >= self.expires_at
     }
 
     pub fn is_blocked(&self) -> bool {
@@ -109,7 +202,7 @@ impl Session {
         !state.retired
             && state.error_score < self.options.max_error_score
             && state.usage_count < self.options.max_usage_count
-            && self.created_at.elapsed() < self.options.max_age
+            && Utc::now() < self.expires_at
     }
 
     /// The request succeeded: count the use and lower the error score.
@@ -150,6 +243,7 @@ impl Default for SessionPoolOptions {
 /// Hands out sessions: new ones until the pool is full, then random usable ones, replacing
 /// sessions that are no longer usable (the `random` strategy of Crawlee for JS).
 pub struct SessionPool {
+    id: String,
     options: SessionPoolOptions,
     proxies: Option<Arc<dyn ProxySource>>,
     sessions: Mutex<Vec<Arc<Session>>>,
@@ -162,8 +256,23 @@ impl std::fmt::Debug for SessionPool {
 }
 
 impl SessionPool {
+    /// A pool with the next process-wide id: `"0"` for the first pool, as in JS.
     pub fn new(options: SessionPoolOptions, proxies: Option<Arc<dyn ProxySource>>) -> Self {
-        SessionPool { options, proxies, sessions: Mutex::new(Vec::new()) }
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        Self::with_id(NEXT_ID.fetch_add(1, Ordering::Relaxed).to_string(), options, proxies)
+    }
+
+    pub fn with_id(id: impl Into<String>, options: SessionPoolOptions, proxies: Option<Arc<dyn ProxySource>>) -> Self {
+        SessionPool { id: id.into(), options, proxies, sessions: Mutex::new(Vec::new()) }
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// The key the pool is saved under.
+    pub fn persist_state_key(&self) -> String {
+        format!("CRAWLEE_SESSION_POOL_STATE_{}", self.id)
     }
 
     fn create_session(&self) -> Arc<Session> {
@@ -206,6 +315,36 @@ impl SessionPool {
     }
 }
 
+impl PersistedState for SessionPool {
+    fn to_record(&self) -> Value {
+        let sessions = self.sessions.lock();
+        let usable = sessions.iter().filter(|session| session.is_usable()).count();
+        json!({
+            "usableSessionsCount": usable,
+            "retiredSessionsCount": sessions.len() - usable,
+            "sessions": sessions.iter().map(|session| session.to_state()).collect::<Vec<_>>(),
+        })
+    }
+
+    /// Recreates the saved sessions, keeping only the usable ones.
+    fn restore(&self, record: Value) -> Result<(), BoxError> {
+        let saved = record["sessions"].as_array().ok_or("the record has no `sessions`")?;
+        let sessions = saved
+            .iter()
+            .map(|state| Session::from_state(state, &self.options.session_options))
+            .collect::<Result<Vec<_>, _>>()?;
+        let usable: Vec<Arc<Session>> =
+            sessions.into_iter().filter(|session| session.is_usable()).map(Arc::new).collect();
+        tracing::debug!("{} active sessions loaded from the key-value store", usable.len());
+        *self.sessions.lock() = usable;
+        Ok(())
+    }
+
+    fn reset(&self) {
+        self.sessions.lock().clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +383,35 @@ mod tests {
         assert!(c.id() != a.id() && c.id() != b.id());
         assert_eq!(pool.get_session_by_id(c.id()).unwrap().id(), c.id());
         assert!(pool.get_session_by_id(a.id()).is_none());
+    }
+
+    #[test]
+    fn pool_record_round_trips_usable_sessions() {
+        let pool = SessionPool::with_id("0", SessionPoolOptions { max_pool_size: 2, ..Default::default() }, None);
+        let kept = pool.get_session();
+        kept.mark_bad();
+        kept.user_data().insert("token".into(), json!("t"));
+        kept.cookie_jar().set_cookie("sid=1; Path=/", &Url::parse("https://a.test/").unwrap());
+        pool.get_session().retire();
+
+        let record = pool.to_record();
+        assert_eq!(record["usableSessionsCount"], 1);
+        assert_eq!(record["retiredSessionsCount"], 1);
+        let saved = &record["sessions"][0];
+        for field in ["id", "cookieJar", "proxyInfo", "userData", "fingerprint", "maxErrorScore", "expiresAt"] {
+            assert!(saved.get(field).is_some(), "{field}");
+        }
+
+        let restored = SessionPool::with_id("0", SessionPoolOptions::default(), None);
+        restored.restore(record).unwrap();
+        assert_eq!(restored.usable_count(), 1, "retired sessions are dropped");
+        let session = restored.get_session_by_id(kept.id()).unwrap();
+        assert_eq!(session.error_score(), 1.0);
+        assert_eq!(session.usage_count(), 1);
+        assert_eq!(session.user_data()["token"], "t");
+        assert_eq!(
+            session.cookie_jar().cookie_header(&Url::parse("https://a.test/x").unwrap()).as_deref(),
+            Some("sid=1")
+        );
     }
 }

@@ -75,7 +75,7 @@ duplicates). Concurrency is fixed, and storage is in memory.
 |---|---|---|
 | `crawlee` | `crawlee` | Re-exports everything below |
 | `crawlee-utils` | `@crawlee/utils`, `@apify/utilities` | `normalize_url`, enqueue strategies, public-suffix domains, glob/regex URL filters, streaming link extraction (`lol_html`), HTML attribute entity decoding, charset prescan |
-| `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `Services` |
+| `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `EventManager`, `RecoverableState`, system info (cgroup-aware), `Services` |
 | `crawlee-http-client` | `@crawlee/http-client` | The `HttpClient` / `Transport` traits, the shared redirect and cookie logic, a reqwest transport |
 | `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline |
 | `crawlee-http` | `@crawlee/http`, `@crawlee/cheerio` | `HttpCrawler` (typed JSON via serde), `HtmlCrawler` (lazy DOM, streaming `enqueue_links`), body decoding |
@@ -102,6 +102,25 @@ storage/
 - **Settings:** `CRAWLEE_STORAGE_DIR`, `CRAWLEE_PURGE_ON_START`, `CRAWLEE_PERSIST_STORAGE`
   (`false` keeps everything in memory), or the same keys in `crawlee.json`.
 - **In code:** `Services::from_configuration(...)`, or `Services::in_memory()` for tests.
+
+## Events and saved state
+
+`Services` also holds the `EventManager`, as in JS. It emits:
+- `PersistState` every 60 s and at the end of a run;
+- `SystemInfo` every second: CPU and memory, read from cgroups in a container;
+- `StatusMessage`.
+
+`Migrating` and `Aborting` pause the crawl and save the statistics; the Apify SDK will emit
+them. On `PersistState`, crawlers save their state to the default key-value store, under the
+keys and in the record formats of Crawlee for JS:
+
+| Key | What |
+|---|---|
+| `CRAWLEE_CRAWLER_STATISTICS_{id}` | Statistics. A resumed crawl continues its counters and runtime |
+| `CRAWLEE_SESSION_POOL_STATE_{id}` | Sessions, with their cookies in tough-cookie's JSON |
+| `CRAWLEE_STATE` / `CRAWLEE_STATE_{id}` | `ctx.use_state(default)` / `crawler.use_state(default)` |
+
+`RecoverableState` is the building block for all three, and is public for custom state.
 
 ## Design notes
 
@@ -158,15 +177,13 @@ to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them ag
 These are planned in this order, following `docs/plan.md`:
 
 1. **`ConcurrencySystem` / autoscaling.** The pool currently runs at a fixed `max_concurrency`.
-2. **Events and state persistence:** `EventManager`, `RecoverableState`, persisting sessions and
-   statistics, `use_state`.
-3. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
+2. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
    `robots.txt`.
-4. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
+3. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
    `skip_navigation` in `HttpCrawler`, `max_requests_per_minute`.
-5. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
+4. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
    implementations against the fixture server, comparing their outputs.
-6. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
+5. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
 
 ## Development
 

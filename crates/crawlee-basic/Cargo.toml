@@ -10,12 +10,12 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 crawlee-core.workspace = true
 crawlee-http-client.workspace = true
 crawlee-utils.workspace = true
 futures.workspace = true
 parking_lot.workspace = true
-tempfile.workspace = true
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true

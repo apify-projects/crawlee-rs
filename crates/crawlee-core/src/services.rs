@@ -1,14 +1,21 @@
-//! [`Services`]: the configuration and the storage backend shared by the storages and crawlers
-//! of a process.
+//! [`Services`]: the configuration, the storage backend and the event manager shared by the
+//! storages and crawlers of a process.
 //!
 //! Crawlee for JS resolves these through an ambient, `AsyncLocalStorage`-scoped service locator.
 //! Here they are explicit: crawlers take a `Services` value (cheap to clone) or fall back to the
 //! process-wide default.
 
+use std::any::Any;
+use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+
 use crate::configuration::Configuration;
-use crate::errors::StorageResult;
+use crate::errors::{StorageError, StorageResult};
+use crate::events::EventManager;
+use crate::recoverable_state::{RecoverableState, SerdeState};
 use crate::storage::backend::{StorageBackend, StorageIdentifier};
 use crate::storage::dataset::Dataset;
 use crate::storage::key_value_store::KeyValueStore;
@@ -19,6 +26,9 @@ use crate::storage::request_queue::RequestQueue;
 pub struct Services {
     pub configuration: Arc<Configuration>,
     pub storage: Arc<dyn StorageBackend>,
+    pub events: EventManager,
+    /// Values of [`auto_saved_value`](Self::auto_saved_value), by key.
+    auto_saved: Arc<tokio::sync::Mutex<HashMap<String, Arc<dyn Any + Send + Sync>>>>,
     /// Set once the run-scoped storages were purged, so that they are purged once per backend
     /// even when several crawlers run one after another.
     purged: Arc<tokio::sync::OnceCell<()>>,
@@ -42,8 +52,20 @@ impl Services {
         Services::with_configuration(Configuration::default(), storage)
     }
 
+    /// Services with the given storage and the local event manager (see [`EventManager::local`]).
     pub fn with_configuration(configuration: Configuration, storage: Arc<dyn StorageBackend>) -> Self {
-        Services { configuration: Arc::new(configuration), storage, purged: Arc::default() }
+        let events = EventManager::local(&configuration);
+        Services::from_parts(configuration, storage, events)
+    }
+
+    pub fn from_parts(configuration: Configuration, storage: Arc<dyn StorageBackend>, events: EventManager) -> Self {
+        Services {
+            configuration: Arc::new(configuration),
+            storage,
+            events,
+            auto_saved: Arc::default(),
+            purged: Arc::default(),
+        }
     }
 
     /// Services with the storage `configuration` asks for: files under
@@ -86,6 +108,30 @@ impl Services {
         }
         self.purged.get_or_try_init(|| self.storage.purge()).await?;
         Ok(())
+    }
+
+    /// A value saved in the default key-value store under `key` on every `PersistState` event,
+    /// like `KeyValueStore.getAutoSavedValue()` in JS. The first call loads the saved record
+    /// (or starts from `default`); later calls with the same key return the same value.
+    pub async fn auto_saved_value<T>(
+        &self,
+        key: &str,
+        default: impl Fn() -> T + Send + Sync + 'static,
+    ) -> StorageResult<Arc<SerdeState<T>>>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static,
+    {
+        let mut values = self.auto_saved.lock().await;
+        if let Some(value) = values.get(key) {
+            return value.clone().downcast::<SerdeState<T>>().map_err(|_| {
+                StorageError::InvalidArgument(format!("the value saved under '{key}' is used with another type"))
+            });
+        }
+        let state = Arc::new(SerdeState::new(default));
+        // Never torn down: the final `PersistState` of `EventManager::close` saves it.
+        RecoverableState::new(self, key, state.clone(), true).initialize().await?;
+        values.insert(key.to_owned(), state.clone());
+        Ok(state)
     }
 
     pub async fn open_dataset(&self, id: &StorageIdentifier) -> StorageResult<Dataset> {

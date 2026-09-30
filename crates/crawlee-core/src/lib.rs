@@ -3,9 +3,12 @@
 
 pub mod configuration;
 pub mod errors;
+pub mod events;
+pub mod recoverable_state;
 pub mod request;
 pub mod services;
 pub mod storage;
+pub mod system_info;
 pub mod transaction;
 
 pub use crate::configuration::Configuration;
@@ -13,6 +16,8 @@ pub use crate::errors::{
     CriticalError, NonRetryableError, RequestThrottledError, RetryRequestError, SessionError, StorageError,
     StorageResult,
 };
+pub use crate::events::{Event, EventKind, EventManager, StatusLevel, StatusMessage};
+pub use crate::recoverable_state::{PersistedState, RecoverableState, SerdeState};
 pub use crate::request::{Request, RequestBuilder};
 pub use crate::services::Services;
 pub use crate::storage::backend::{StorageBackend, StorageIdentifier};
@@ -22,6 +27,7 @@ pub use crate::storage::file_system::FileSystemStorageBackend;
 pub use crate::storage::key_value_store::KeyValueStore;
 pub use crate::storage::memory::MemoryStorageBackend;
 pub use crate::storage::request_queue::{RequestManager, RequestQueue};
+pub use crate::system_info::SystemInfo;
 pub use crate::transaction::StorageTransaction;
 
 pub use crawlee_utils::EnqueueStrategy;

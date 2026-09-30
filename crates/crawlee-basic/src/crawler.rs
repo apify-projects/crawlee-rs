@@ -2,6 +2,7 @@
 
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures::FutureExt as _;
@@ -10,10 +11,15 @@ use tokio::task::JoinSet;
 use tracing::Instrument as _;
 
 use crawlee_core::storage::backend::BatchAddRequestsResult;
-use crawlee_core::{Dataset, KeyValueStore, Request, RequestManager, Services, StorageIdentifier};
+use crawlee_core::{
+    Dataset, Event, EventKind, KeyValueStore, RecoverableState, Request, RequestManager, SerdeState, Services,
+    StatusLevel, StatusMessage, StorageIdentifier,
+};
 use crawlee_http_client::HttpClient;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-use crate::context::{BasicContext, CrawlerShared, CrawlingContext, RequestScope};
+use crate::context::{BasicContext, CrawlerShared, CrawlingContext, InFlight, RequestScope};
 use crate::errors::{ErrorKind, HandlerPanic, RequestHandlerTimeout, error_message};
 use crate::handler::{ErrorHandler, Identity, Middleware, RequestHandler};
 use crate::proxy::ProxySource;
@@ -22,6 +28,9 @@ use crate::statistics::{FinalStatistics, Statistics};
 
 /// How long the task loop waits for new requests before checking the queue again.
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// How long a migration or abort waits for running requests (`SAFE_MIGRATION_WAIT_MILLIS`).
+const SAFE_MIGRATION_WAIT: Duration = Duration::from_secs(20);
+const CRAWLEE_STATE_KEY: &str = "CRAWLEE_STATE";
 
 /// Crawler settings, with the defaults of Crawlee for JS where they exist.
 #[derive(Clone, Debug)]
@@ -42,6 +51,12 @@ pub struct CrawlerOptions {
     /// Timeout of `send_request` calls made from handlers.
     pub send_request_timeout: Duration,
     pub session_pool: SessionPoolOptions,
+    /// Identifies the crawler in its persisted state (`CRAWLEE_CRAWLER_STATISTICS_{id}`,
+    /// `CRAWLEE_STATE_{id}`) and in status messages. Defaults to the crawler's instantiation
+    /// index in the process: `"0"` for the first one.
+    pub id: Option<String>,
+    /// How often the status message is updated (`statusMessageLoggingInterval`).
+    pub status_message_interval: Duration,
 }
 
 impl Default for CrawlerOptions {
@@ -54,6 +69,8 @@ impl Default for CrawlerOptions {
             request_handler_timeout: Duration::from_secs(60),
             send_request_timeout: Duration::from_secs(30),
             session_pool: SessionPoolOptions::default(),
+            id: None,
+            status_message_interval: Duration::from_secs(10),
         }
     }
 }
@@ -72,11 +89,16 @@ struct Inner<P: Middleware<BasicContext>> {
     error_handler: Option<Arc<dyn ErrorHandler>>,
     failed_request_handler: Option<Arc<dyn ErrorHandler>>,
     options: CrawlerOptions,
+    /// The explicit id, or the instantiation index.
+    id: String,
+    has_explicit_id: bool,
     services: Services,
     request_manager: Option<Arc<dyn RequestManager>>,
     http_client: Arc<dyn HttpClient>,
-    session_pool: SessionPool,
+    session_pool: Arc<SessionPool>,
     statistics: Arc<Statistics>,
+    statistics_state: RecoverableState<Statistics>,
+    session_pool_state: RecoverableState<SessionPool>,
     shared: OnceCell<Arc<CrawlerShared>>,
 }
 
@@ -203,6 +225,12 @@ where
         self
     }
 
+    /// See [`CrawlerOptions::id`].
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.options.id = Some(id.into());
+        self
+    }
+
     pub fn session_pool_options(mut self, options: SessionPoolOptions) -> Self {
         self.options.session_pool = options;
         self
@@ -237,7 +265,18 @@ where
         if self.options.max_concurrency == 0 {
             return Err(BuildError::ZeroConcurrency);
         }
-        let session_pool = SessionPool::new(self.options.session_pool.clone(), self.proxies);
+        static INSTANCE_COUNT: AtomicU64 = AtomicU64::new(0);
+        let instance_index = INSTANCE_COUNT.fetch_add(1, Ordering::Relaxed);
+        let has_explicit_id = self.options.id.is_some();
+        let id = self.options.id.clone().unwrap_or_else(|| instance_index.to_string());
+
+        let services = self.services.unwrap_or_else(|| Services::global().clone());
+        let session_pool = Arc::new(SessionPool::new(self.options.session_pool.clone(), self.proxies));
+        let statistics = Arc::new(Statistics::with_id(id.clone()));
+        let statistics_state =
+            RecoverableState::new(&services, statistics.persist_state_key(), statistics.clone(), true);
+        let session_pool_state =
+            RecoverableState::new(&services, session_pool.persist_state_key(), session_pool.clone(), true);
         Ok(BasicCrawler {
             inner: Arc::new(Inner {
                 pipeline: self.pipeline,
@@ -245,11 +284,15 @@ where
                 error_handler: self.error_handler,
                 failed_request_handler: self.failed_request_handler,
                 options: self.options,
-                services: self.services.unwrap_or_else(|| Services::global().clone()),
+                id,
+                has_explicit_id,
+                services,
                 request_manager: self.request_manager,
                 http_client: self.http_client.unwrap_or_else(crawlee_http_client::default_client),
                 session_pool,
-                statistics: Arc::new(Statistics::new()),
+                statistics,
+                statistics_state,
+                session_pool_state,
                 shared: OnceCell::new(),
             }),
         })
@@ -285,6 +328,15 @@ where
                     max_crawl_depth: inner.options.max_crawl_depth,
                     send_request_timeout: inner.options.send_request_timeout,
                     requests_added: Notify::new(),
+                    state_key: if inner.has_explicit_id {
+                        format!("{CRAWLEE_STATE_KEY}_{}", inner.id)
+                    } else {
+                        CRAWLEE_STATE_KEY.to_owned()
+                    },
+                    paused: Default::default(),
+                    resumed: Notify::new(),
+                    in_flight: AtomicUsize::new(0),
+                    drained: Notify::new(),
                 }))
             })
             .await
@@ -305,6 +357,107 @@ where
 
     pub fn statistics(&self) -> &Statistics {
         &self.inner.statistics
+    }
+
+    pub fn session_pool(&self) -> &SessionPool {
+        &self.inner.session_pool
+    }
+
+    /// The crawler's id; see [`CrawlerOptions::id`].
+    pub fn id(&self) -> &str {
+        &self.inner.id
+    }
+
+    /// State shared by the crawl and saved with it; see [`BasicContext::use_state`].
+    pub async fn use_state<T>(
+        &self,
+        default: impl Fn() -> T + Send + Sync + 'static,
+    ) -> anyhow::Result<Arc<SerdeState<T>>>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static,
+    {
+        let shared = self.shared().await?;
+        Ok(self.inner.services.auto_saved_value(&shared.state_key, default).await?)
+    }
+
+    /// Logs a status message and emits it as [`Event::StatusMessage`] (which the Apify SDK
+    /// forwards to the platform). The crawler sets one every
+    /// [`status_message_interval`](CrawlerOptions::status_message_interval).
+    pub fn set_status_message(&self, message: impl Into<String>, level: StatusLevel, is_terminal: bool) {
+        let message = message.into();
+        match level {
+            StatusLevel::Debug => tracing::debug!(terminal = is_terminal, "{message}"),
+            StatusLevel::Info => tracing::info!(terminal = is_terminal, "{message}"),
+            StatusLevel::Warning => tracing::warn!(terminal = is_terminal, "{message}"),
+            StatusLevel::Error => tracing::error!(terminal = is_terminal, "{message}"),
+        }
+        self.inner.services.events.emit(Event::StatusMessage(StatusMessage {
+            crawler_id: self.inner.id.clone(),
+            message,
+            is_terminal,
+            level,
+        }));
+    }
+
+    /// Stops starting new requests and waits (up to `timeout`) for the running ones to finish.
+    /// [`run`](Self::run) keeps going once [`resume`](Self::resume) is called.
+    pub async fn pause(&self, timeout: Duration) -> anyhow::Result<()> {
+        let shared = self.shared().await?;
+        shared.paused.store(true, Ordering::Release);
+        tokio::time::timeout(timeout, shared.wait_until_drained())
+            .await
+            .map_err(|_| anyhow::anyhow!("pausing the crawler timed out: running tasks did not finish in time"))
+    }
+
+    pub async fn resume(&self) -> anyhow::Result<()> {
+        let shared = self.shared().await?;
+        shared.paused.store(false, Ordering::Release);
+        shared.resumed.notify_waiters();
+        Ok(())
+    }
+
+    /// On a migration or abort: let running requests finish, then save the statistics.
+    async fn pause_on_migration(&self) {
+        if self.pause(SAFE_MIGRATION_WAIT).await.is_err() {
+            tracing::error!(
+                "The crawler was paused due to migration to another host, but some requests did not finish in \
+                 time. Those requests' results may be duplicated."
+            );
+        }
+        if let Err(err) = self.inner.statistics_state.persist().await {
+            tracing::warn!("Failed to persist the statistics: {err}");
+        }
+    }
+
+    /// Updates the status message every `status_message_interval` until the returned task is
+    /// aborted.
+    fn spawn_status_logger(&self) -> tokio::task::JoinHandle<()> {
+        let crawler = self.clone();
+        let interval = self.inner.options.status_message_interval;
+        tokio::spawn(async move {
+            let mut previous_failed = crawler.inner.statistics.requests_failed();
+            let mut ticker = tokio::time::interval(interval.max(Duration::from_millis(1)));
+            ticker.tick().await;
+            loop {
+                ticker.tick().await;
+                let (succeeded, failed) =
+                    (crawler.inner.statistics.requests_succeeded(), crawler.inner.statistics.requests_failed());
+                let failed_delta = failed.saturating_sub(previous_failed);
+                previous_failed = failed;
+                let message = if failed_delta > 0 {
+                    format!(
+                        "Experiencing problems, {failed_delta} failed requests in the past {} seconds.",
+                        interval.as_secs()
+                    )
+                } else {
+                    format!(
+                        "Crawled {succeeded} pages, {failed} failed requests, desired concurrency {}.",
+                        crawler.inner.options.max_concurrency
+                    )
+                };
+                crawler.set_status_message(message, StatusLevel::Debug, false);
+            }
+        })
     }
 
     pub async fn dataset(&self) -> anyhow::Result<Dataset> {
@@ -360,18 +513,62 @@ where
         I: IntoIterator<Item = R>,
         R: Into<Request>,
     {
+        let inner = &self.inner;
         let shared = self.shared().await?.clone();
+        let events = &inner.services.events;
+        let owns_event_manager = !events.is_initialized();
+        if owns_event_manager {
+            events.init().await;
+        }
+        // Loads the state of a previous run, if the crawl is resuming.
+        inner.statistics_state.initialize().await?;
+        inner.session_pool_state.initialize().await?;
+
         self.add_requests(requests).await?;
-        self.inner.statistics.start();
-        tracing::info!(max_concurrency = self.inner.options.max_concurrency, "Starting the crawler.");
+        inner.statistics.start();
+        tracing::info!(max_concurrency = inner.options.max_concurrency, "Starting the crawler.");
+        let status_logger = self.spawn_status_logger();
+        self.set_status_message("Starting the crawler.", StatusLevel::Info, false);
+
+        let pause_listeners = [EventKind::Migrating, EventKind::Aborting].map(|kind| {
+            let crawler = self.clone();
+            events.on(kind, move |_| {
+                let crawler = crawler.clone();
+                async move { crawler.pause_on_migration().await }
+            })
+        });
 
         let mut result = self.task_loop(&shared).await;
-        self.inner.statistics.finish();
-        if let Err(err) = self.inner.services.storage.teardown().await {
+        inner.statistics.finish();
+        for id in pause_listeners {
+            events.off(id);
+        }
+
+        // Save the final state: the statistics and the sessions, then everything else that
+        // listens to `PersistState` (such as `use_state`).
+        inner.statistics_state.teardown().await;
+        inner.session_pool_state.teardown().await;
+        if owns_event_manager {
+            events.close().await;
+        } else {
+            events.emit(Event::PersistState { is_migrating: false });
+            events.wait_for_all_listeners_to_complete().await;
+        }
+        if let Err(err) = inner.services.storage.teardown().await {
             tracing::warn!("Failed to tear down the storage: {err}");
             result = result.and(Err(err.into()));
         }
-        let stats = self.inner.statistics.snapshot();
+
+        status_logger.abort();
+        let stats = inner.statistics.snapshot();
+        self.set_status_message(
+            format!(
+                "Finished! Total {} requests: {} succeeded, {} failed.",
+                stats.requests_total, stats.requests_succeeded, stats.requests_failed
+            ),
+            StatusLevel::Info,
+            true,
+        );
 
         match result {
             Ok(()) => {
@@ -422,6 +619,19 @@ where
                 }
             }
 
+            if shared.paused.load(Ordering::Acquire) {
+                let resumed = shared.resumed.notified();
+                tokio::pin!(resumed);
+                resumed.as_mut().enable();
+                if shared.paused.load(Ordering::Acquire) {
+                    tokio::select! {
+                        () = resumed => {}
+                        Some(joined) = tasks.join_next(), if !tasks.is_empty() => Self::check_task(joined, &mut tasks)?,
+                    }
+                    continue;
+                }
+            }
+
             let permit = tokio::select! {
                 permit = permits.clone().acquire_owned() => permit.expect("the semaphore is never closed"),
                 Some(joined) = tasks.join_next(), if !tasks.is_empty() && permits.available_permits() == 0 => {
@@ -434,10 +644,12 @@ where
                 Some(request) => {
                     let crawler = self.clone();
                     let shared = shared.clone();
+                    let in_flight = InFlight::new(shared.clone());
                     let span = tracing::info_span!("request", url = %request.url);
                     tasks.spawn(
                         async move {
                             let _permit = permit;
+                            let _in_flight = in_flight;
                             crawler.process_request(shared, request).await
                         }
                         .instrument(span),

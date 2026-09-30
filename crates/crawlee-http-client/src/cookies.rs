@@ -2,8 +2,10 @@
 
 use std::collections::HashMap;
 
-use cookie_store::{CookieStore, RawCookie};
+use chrono::{DateTime, SecondsFormat, Utc};
+use cookie_store::{CookieDomain, CookieExpiration, CookieStore, RawCookie};
 use parking_lot::Mutex;
+use serde_json::{Map, Value, json};
 use url::Url;
 
 /// `(domain, path, name)` identifies a cookie in the store.
@@ -12,9 +14,9 @@ type CookieKey = (String, String, String);
 #[derive(Debug, Default, Clone)]
 struct Inner {
     store: CookieStore,
-    /// Creation order of every cookie, for the RFC 6265 ordering of the `Cookie` header.
-    /// `cookie_store` does not keep it, and iterates cookies in hash order.
-    created: HashMap<CookieKey, u64>,
+    /// Creation order and time of every cookie, for the RFC 6265 ordering of the `Cookie`
+    /// header. `cookie_store` does not keep them, and iterates cookies in hash order.
+    created: HashMap<CookieKey, (u64, DateTime<Utc>)>,
     next_sequence: u64,
 }
 
@@ -33,7 +35,7 @@ impl Inner {
         for cookie in self.store.iter_any() {
             let key = key_of(cookie);
             if !self.created.contains_key(&key) {
-                self.created.insert(key, self.next_sequence);
+                self.created.insert(key, (self.next_sequence, Utc::now()));
                 self.next_sequence += 1;
             }
         }
@@ -47,7 +49,7 @@ impl Inner {
             .matches(url)
             .into_iter()
             .map(|cookie| {
-                let sequence = self.created.get(&key_of(cookie)).copied().unwrap_or(u64::MAX);
+                let sequence = self.created.get(&key_of(cookie)).map_or(u64::MAX, |created| created.0);
                 (String::from(&cookie.path).len(), sequence, cookie)
             })
             .collect();
@@ -138,6 +140,130 @@ impl CookieJar {
     }
 }
 
+fn iso(time: DateTime<Utc>) -> String {
+    time.to_rfc3339_opts(SecondsFormat::Millis, true)
+}
+
+impl CookieJar {
+    /// The jar in the JSON format of tough-cookie's `CookieJar.toJSON()`, which Crawlee for JS
+    /// persists sessions in. Expired cookies are left out.
+    pub fn to_json(&self) -> Value {
+        let inner = self.inner.lock();
+        let mut cookies: Vec<(u64, Value)> = inner
+            .store
+            .iter_unexpired()
+            .map(|cookie| {
+                let (sequence, created) = inner.created.get(&key_of(cookie)).copied().unwrap_or((u64::MAX, Utc::now()));
+                let mut out = Map::new();
+                out.insert("key".into(), cookie.name().into());
+                out.insert("value".into(), cookie.value().into());
+                if let CookieExpiration::AtUtc(at) = &cookie.expires
+                    && let Some(at) = DateTime::from_timestamp(at.unix_timestamp(), 0)
+                {
+                    out.insert("expires".into(), iso(at).into());
+                }
+                let (domain, host_only) = match &cookie.domain {
+                    CookieDomain::HostOnly(domain) => (Some(domain.clone()), true),
+                    CookieDomain::Suffix(domain) => (Some(domain.clone()), false),
+                    CookieDomain::NotPresent | CookieDomain::Empty => (None, true),
+                };
+                if let Some(domain) = domain {
+                    out.insert("domain".into(), domain.into());
+                }
+                out.insert("path".into(), String::from(&cookie.path).into());
+                if cookie.secure() == Some(true) {
+                    out.insert("secure".into(), true.into());
+                }
+                if cookie.http_only() == Some(true) {
+                    out.insert("httpOnly".into(), true.into());
+                }
+                out.insert("hostOnly".into(), host_only.into());
+                out.insert("creation".into(), iso(created).into());
+                out.insert("lastAccessed".into(), iso(created).into());
+                if let Some(same_site) = cookie.same_site() {
+                    out.insert("sameSite".into(), same_site.to_string().to_ascii_lowercase().into());
+                }
+                (sequence, Value::Object(out))
+            })
+            .collect();
+        cookies.sort_by_key(|(sequence, _)| *sequence);
+        json!({
+            "version": "tough-cookie@6.0.1",
+            "storeType": "MemoryCookieStore",
+            "rejectPublicSuffixes": true,
+            "enableLooseMode": false,
+            "allowSpecialUseDomain": true,
+            "prefixSecurity": "silent",
+            "cookies": cookies.into_iter().map(|(_, cookie)| cookie).collect::<Vec<_>>(),
+        })
+    }
+
+    /// A jar from the output of [`to_json`](Self::to_json) or tough-cookie's
+    /// `CookieJar.toJSON()`. Cookies that cannot be read or have expired are skipped.
+    pub fn from_json(value: &Value) -> Self {
+        let jar = CookieJar::new();
+        let mut cookies: Vec<&Value> = value["cookies"].as_array().map(|c| c.iter().collect()).unwrap_or_default();
+        // Oldest first, so the creation order survives.
+        cookies.sort_by_key(|cookie| cookie["creation"].as_str().unwrap_or_default().to_owned());
+        let now = Utc::now();
+        let mut inner = jar.inner.lock();
+        for cookie in cookies {
+            let (Some(name), Some(domain)) = (cookie["key"].as_str(), cookie["domain"].as_str()) else {
+                continue;
+            };
+            let value = cookie["value"].as_str().unwrap_or_default();
+            let path = cookie["path"].as_str().unwrap_or("/");
+            let mut header = format!("{name}={value}; Path={path}");
+            if cookie["hostOnly"] != Value::Bool(true) {
+                header.push_str(&format!("; Domain={domain}"));
+            }
+            let created = cookie["creation"]
+                .as_str()
+                .and_then(|c| DateTime::parse_from_rfc3339(c).ok())
+                .map_or(now, |c| c.with_timezone(&Utc));
+            // tough-cookie keeps `Max-Age` as `maxAge`, counted from the creation; `expires` otherwise.
+            let expires = match (&cookie["maxAge"], cookie["expires"].as_str()) {
+                (Value::Number(max_age), _) => {
+                    max_age.as_i64().map(|secs| Some(created + chrono::Duration::seconds(secs)))
+                }
+                (_, Some(expires)) if expires != "Infinity" => {
+                    DateTime::parse_from_rfc3339(expires).ok().map(|e| Some(e.with_timezone(&Utc)))
+                }
+                _ => Some(None),
+            };
+            let Some(expires) = expires else { continue };
+            if let Some(expires) = expires {
+                let seconds = (expires - now).num_seconds();
+                if seconds <= 0 {
+                    continue;
+                }
+                header.push_str(&format!("; Max-Age={seconds}"));
+            }
+            if cookie["secure"] == Value::Bool(true) {
+                header.push_str("; Secure");
+            }
+            if cookie["httpOnly"] == Value::Bool(true) {
+                header.push_str("; HttpOnly");
+            }
+            if let Some(same_site) = cookie["sameSite"].as_str() {
+                header.push_str(&format!("; SameSite={same_site}"));
+            }
+            let Ok(url) = Url::parse(&format!("https://{}{path}", domain.trim_start_matches('.'))) else {
+                continue;
+            };
+            if inner.store.parse(&header, &url).is_ok() {
+                let key = (domain.trim_start_matches('.').to_ascii_lowercase(), path.to_owned(), name.to_owned());
+                let sequence = inner.next_sequence;
+                inner.next_sequence += 1;
+                inner.created.insert(key, (sequence, created));
+            }
+        }
+        inner.record_new_cookies();
+        drop(inner);
+        jar
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,5 +295,60 @@ mod tests {
         // Replacing a cookie keeps its original creation time.
         jar.store_response_cookies(std::iter::once("z=updated; Path=/"), &url);
         assert_eq!(jar.cookie_header(&url).as_deref(), Some("deep=3; z=updated; a=2; m=4"));
+    }
+
+    #[test]
+    fn tough_cookie_json_round_trip() {
+        let jar = CookieJar::new();
+        let url = Url::parse("https://shop.example.com/cart").unwrap();
+        for header in [
+            "b=2; Path=/",
+            "a=1; Path=/; Domain=example.com; Secure; HttpOnly; SameSite=Lax; Max-Age=3600",
+            "old=x; Path=/; Max-Age=0",
+        ] {
+            jar.store_response_cookies(std::iter::once(header), &url);
+        }
+
+        let json = jar.to_json();
+        let cookies = json["cookies"].as_array().unwrap();
+        assert_eq!(cookies.len(), 2, "expired cookies are not saved");
+        assert_eq!(cookies[0]["key"], "b");
+        assert_eq!(cookies[0]["hostOnly"], true);
+        assert_eq!(cookies[0]["domain"], "shop.example.com");
+        assert_eq!(cookies[1]["domain"], "example.com");
+        assert_eq!(cookies[1]["hostOnly"], false);
+        assert_eq!(cookies[1]["secure"], true);
+        assert_eq!(cookies[1]["sameSite"], "lax");
+        assert!(cookies[1]["expires"].is_string());
+
+        let restored = CookieJar::from_json(&json);
+        assert_eq!(restored.cookie_header(&url).as_deref(), Some("b=2; a=1"));
+        // The domain cookie applies to the whole domain; the host-only one does not.
+        let other = Url::parse("https://www.example.com/").unwrap();
+        assert_eq!(restored.cookie_header(&other).as_deref(), Some("a=1"));
+    }
+
+    #[test]
+    fn reads_tough_cookie_output() {
+        // Written by `new CookieJar().setCookie(...)` + `toJSON()` in Node.
+        let json = serde_json::json!({
+            "version": "tough-cookie@6.0.1",
+            "storeType": "MemoryCookieStore",
+            "rejectPublicSuffixes": true,
+            "cookies": [
+                { "key": "sid", "value": "abc", "domain": "example.com", "path": "/", "hostOnly": true,
+                  "creation": "2026-01-01T00:00:00.000Z", "lastAccessed": "2026-01-01T00:00:00.000Z" },
+                { "key": "gone", "value": "1", "expires": "2020-01-01T00:00:00.000Z", "domain": "example.com",
+                  "path": "/", "hostOnly": true, "creation": "2019-01-01T00:00:00.000Z" },
+                { "key": "a", "value": "1", "maxAge": 3600, "domain": "example.com", "path": "/", "secure": true,
+                  "httpOnly": true, "hostOnly": false, "creation": "2099-01-01T00:00:00.000Z", "sameSite": "lax" },
+                { "key": "stale", "value": "1", "maxAge": 60, "domain": "example.com", "path": "/",
+                  "hostOnly": true, "creation": "2020-01-01T00:00:00.000Z" }
+            ]
+        });
+        let jar = CookieJar::from_json(&json);
+        assert_eq!(jar.cookie_header(&Url::parse("https://example.com/x").unwrap()).as_deref(), Some("sid=abc; a=1"));
+        let sub = Url::parse("https://www.example.com/").unwrap();
+        assert_eq!(jar.cookie_header(&sub).as_deref(), Some("a=1"));
     }
 }

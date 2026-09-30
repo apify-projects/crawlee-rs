@@ -14,10 +14,12 @@ reqwest = ["dep:reqwest"]
 [dependencies]
 async-trait.workspace = true
 bytes.workspace = true
+chrono.workspace = true
 cookie_store.workspace = true
 http.workspace = true
 parking_lot.workspace = true
 reqwest = { workspace = true, optional = true }
+serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

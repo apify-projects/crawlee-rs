@@ -1,6 +1,7 @@
 //! The crawling context handed to request handlers.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -9,7 +10,7 @@ use serde::de::DeserializeOwned;
 use tokio::sync::Notify;
 
 use crawlee_core::storage::backend::BatchAddRequestsResult;
-use crawlee_core::{Dataset, KeyValueStore, Request, RequestManager, Services, StorageTransaction};
+use crawlee_core::{Dataset, KeyValueStore, Request, RequestManager, SerdeState, Services, StorageTransaction};
 use crawlee_http_client::{HttpClient, HttpClientError, HttpRequest, HttpResponse, SendOptions};
 
 use crate::proxy::ProxyInfo;
@@ -29,6 +30,50 @@ pub struct CrawlerShared {
     pub send_request_timeout: Duration,
     /// Woken when requests are added, so an idle crawler picks them up immediately.
     pub requests_added: Notify,
+    /// Key of [`BasicContext::use_state`]: `CRAWLEE_STATE`, or `CRAWLEE_STATE_{id}` for a crawler
+    /// with an explicit id.
+    pub(crate) state_key: String,
+    /// Set by `pause()`: the task loop starts no new requests.
+    pub(crate) paused: AtomicBool,
+    /// Woken by `resume()`.
+    pub(crate) resumed: Notify,
+    /// Requests being processed right now.
+    pub(crate) in_flight: AtomicUsize,
+    /// Woken when `in_flight` drops to zero.
+    pub(crate) drained: Notify,
+}
+
+impl CrawlerShared {
+    /// Waits until no request is being processed.
+    pub(crate) async fn wait_until_drained(&self) {
+        loop {
+            let drained = self.drained.notified();
+            tokio::pin!(drained);
+            drained.as_mut().enable();
+            if self.in_flight.load(Ordering::Acquire) == 0 {
+                return;
+            }
+            drained.await;
+        }
+    }
+}
+
+/// Counts a request as in flight while alive.
+pub(crate) struct InFlight(pub(crate) Arc<CrawlerShared>);
+
+impl InFlight {
+    pub(crate) fn new(shared: Arc<CrawlerShared>) -> Self {
+        shared.in_flight.fetch_add(1, Ordering::AcqRel);
+        InFlight(shared)
+    }
+}
+
+impl Drop for InFlight {
+    fn drop(&mut self) {
+        if self.0.in_flight.fetch_sub(1, Ordering::AcqRel) == 1 {
+            self.0.drained.notify_waiters();
+        }
+    }
 }
 
 /// Per-request state shared between the crawler and the context.
@@ -191,6 +236,27 @@ impl BasicContext {
     /// Wakes the task loop if it is waiting for requests.
     pub(crate) fn notify_requests_added(&self) {
         self.scope.shared.requests_added.notify_one();
+    }
+
+    /// State shared by every request of the crawl and saved with it, like `useState()` in JS.
+    /// It lives in the default key-value store under `CRAWLEE_STATE` (`CRAWLEE_STATE_{id}` for a
+    /// crawler with an explicit id), is saved on every `PersistState` event and loaded when a
+    /// crawl resumes.
+    ///
+    /// ```no_run
+    /// # async fn handler(ctx: crawlee_basic::BasicContext) -> anyhow::Result<()> {
+    /// let state = ctx.use_state(Vec::<String>::new).await?;
+    /// state.lock().push(ctx.request().url.clone());
+    /// # Ok(()) }
+    /// ```
+    pub async fn use_state<T>(
+        &self,
+        default: impl Fn() -> T + Send + Sync + 'static,
+    ) -> anyhow::Result<Arc<SerdeState<T>>>
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static,
+    {
+        Ok(self.scope.shared.services.auto_saved_value(&self.scope.shared.state_key, default).await?)
     }
 
     /// Sends an HTTP request with this request's session (cookies and proxy).

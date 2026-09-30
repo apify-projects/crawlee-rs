@@ -375,3 +375,101 @@ async fn file_system_storage_is_purged_once_per_process() {
             .unwrap();
     assert_eq!(item, json!({ "url": "https://a.dev/1" }));
 }
+
+#[tokio::test]
+async fn a_crawl_resumes_with_its_statistics_and_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let crawl = |purge_on_start: bool, urls: Vec<&'static str>| {
+        let configuration =
+            Configuration { storage_dir: dir.path().to_owned(), purge_on_start, ..Configuration::default() };
+        async move {
+            let crawler = BasicCrawler::builder()
+                .services(Services::from_configuration(configuration))
+                .id("resume")
+                .request_handler(|ctx: BasicContext| async move {
+                    let state = ctx.use_state(|| json!({ "pages": 0 })).await?;
+                    let mut state = state.lock();
+                    state["pages"] = json!(state["pages"].as_u64().unwrap() + 1);
+                    Ok(())
+                })
+                .build()
+                .unwrap();
+            crawler.run(urls).await.unwrap()
+        }
+    };
+    let read = |key: &str| -> Value {
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("key_value_stores/default").join(key)).unwrap())
+            .unwrap()
+    };
+
+    let first = crawl(true, vec!["https://a.dev/1", "https://a.dev/2"]).await;
+    assert_eq!(first.requests_succeeded, 2);
+    assert_eq!(read("CRAWLEE_STATE_resume"), json!({ "pages": 2 }));
+    let saved = read("CRAWLEE_CRAWLER_STATISTICS_resume");
+    assert_eq!((saved["requestsSucceeded"].clone(), saved["statsId"].clone()), (json!(2), json!("resume")));
+    assert!(saved["crawlerFinishedAt"].is_string());
+    let pools: Vec<String> = std::fs::read_dir(dir.path().join("key_value_stores/default"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.starts_with("CRAWLEE_SESSION_POOL_STATE_") && !name.ends_with("__metadata__.json"))
+        .collect();
+    assert_eq!(pools.len(), 1, "{pools:?}");
+
+    // Without purging, the next run continues: handled requests are not crawled again, and the
+    // statistics and the state go on from the saved ones.
+    let second = crawl(false, vec!["https://a.dev/1", "https://a.dev/3"]).await;
+    assert_eq!(second.requests_succeeded, 3);
+    assert_eq!(read("CRAWLEE_STATE_resume"), json!({ "pages": 3 }));
+    assert_eq!(read("CRAWLEE_CRAWLER_STATISTICS_resume")["requestsSucceeded"], 3);
+}
+
+#[tokio::test]
+async fn migrating_pauses_the_crawl_and_status_messages_are_emitted() {
+    use crawlee_core::{Event, EventKind};
+
+    let services = services();
+    let messages = Arc::new(Mutex::new(Vec::new()));
+    let log = messages.clone();
+    services.events.on(EventKind::StatusMessage, move |event| {
+        if let Event::StatusMessage(message) = event {
+            log.lock().push((message.message, message.is_terminal));
+        }
+        async {}
+    });
+
+    let started = Arc::new(AtomicUsize::new(0));
+    let counter = started.clone();
+    let crawler = BasicCrawler::builder()
+        .services(services.clone())
+        .max_concurrency(1)
+        .request_handler(move |_ctx: BasicContext| {
+            let counter = counter.clone();
+            async move {
+                counter.fetch_add(1, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                Ok(())
+            }
+        })
+        .build()
+        .unwrap();
+
+    let run = tokio::spawn({
+        let crawler = crawler.clone();
+        async move { crawler.run(["https://a.dev/1", "https://a.dev/2", "https://a.dev/3"]).await.unwrap() }
+    });
+    while started.load(Ordering::SeqCst) == 0 {
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    services.events.emit(Event::Migrating);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(started.load(Ordering::SeqCst), 1, "no request starts while paused");
+    assert!(!run.is_finished());
+
+    crawler.resume().await.unwrap();
+    let stats = run.await.unwrap();
+    assert_eq!(stats.requests_succeeded, 3);
+
+    let messages = messages.lock().clone();
+    assert_eq!(messages.first().unwrap(), &("Starting the crawler.".to_owned(), false));
+    assert_eq!(messages.last().unwrap(), &("Finished! Total 3 requests: 3 succeeded, 0 failed.".to_owned(), true));
+}

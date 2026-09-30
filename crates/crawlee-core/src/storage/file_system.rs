@@ -24,7 +24,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use crawlee_storage::dataset::FileSystemDatasetClient;
 use crawlee_storage::key_value_store::FileSystemKeyValueStoreClient;
-use crawlee_storage::models::{AdoptionCandidate, AdoptionRule, StorageMetadata};
+use crawlee_storage::models::{AdoptableFile, AdoptionCandidate, AdoptionRule, StorageMetadata};
 use crawlee_storage::request_queue::FileSystemRequestQueueClient;
 use serde_json::Value;
 use serde_json::value::RawValue;
@@ -134,6 +134,8 @@ fn find_cached<T: Cached>(cache: &mut Vec<Arc<T>>, key: &str) -> Option<Arc<T>> 
 pub struct FileSystemStorageBackend {
     storage_dir: PathBuf,
     request_queue_access: RequestQueueAccess,
+    /// See [`with_input_keys`](Self::with_input_keys).
+    input_keys: Vec<String>,
     // Held across the `open` of a storage, so that two tasks opening the same storage get the
     // same client instead of racing two clients onto one directory.
     datasets: Mutex<Vec<Arc<FsDataset>>>,
@@ -156,10 +158,25 @@ impl FileSystemStorageBackend {
         FileSystemStorageBackend {
             storage_dir: storage_dir.into(),
             request_queue_access: access,
+            input_keys: Vec::new(),
             datasets: Mutex::default(),
             key_value_stores: Mutex::default(),
             request_queues: Mutex::default(),
         }
+    }
+
+    /// Keys of the default key-value store that hold the input of a run (an Actor input, for
+    /// example). A bare `<key>` or `<key>.json` file there becomes the record `<key>` when the store
+    /// is opened (by default it would be the record named like the file), and the records survive
+    /// [`purge`](StorageBackend::purge).
+    pub fn with_input_keys(mut self, keys: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        for key in keys {
+            let key = key.into();
+            if !self.input_keys.contains(&key) {
+                self.input_keys.push(key);
+            }
+        }
+        self
     }
 
     pub fn storage_dir(&self) -> &Path {
@@ -199,12 +216,30 @@ impl FileSystemStorageBackend {
         if let Some(found) = find_cached(&mut cache, &resolved.cache_key) {
             return Ok(found);
         }
-        let adopt = [AdoptionCandidate::Sweep {
+        let is_default = resolved.alias.as_deref() == Some(DEFAULT_DIRECTORY);
+        let mut adopt: Vec<AdoptionCandidate> = if is_default {
+            self.input_keys
+                .iter()
+                .map(|key| AdoptionCandidate::Key {
+                    key: key.clone(),
+                    files: vec![
+                        AdoptableFile { filename: key.clone(), content_type: ADOPTED_BINARY_CONTENT_TYPE.to_owned() },
+                        AdoptableFile {
+                            filename: format!("{key}.json"),
+                            content_type: ADOPTED_JSON_CONTENT_TYPE.to_owned(),
+                        },
+                    ],
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        adopt.push(AdoptionCandidate::Sweep {
             rules: vec![
                 AdoptionRule { pattern: "*.json".to_owned(), content_type: ADOPTED_JSON_CONTENT_TYPE.to_owned() },
                 AdoptionRule { pattern: "*".to_owned(), content_type: ADOPTED_BINARY_CONTENT_TYPE.to_owned() },
             ],
-        }];
+        });
         let client = FileSystemKeyValueStoreClient::open(
             resolved.id.clone(),
             resolved.name.clone(),
@@ -326,7 +361,8 @@ impl StorageBackend for FileSystemStorageBackend {
     /// opened yet (leftovers of a previous run).
     async fn purge(&self) -> StorageResult<()> {
         for dirname in self.run_scoped_directories(StorageKind::KeyValueStore).await {
-            self.open_key_value_store(&StorageIdentifier::Alias(dirname)).await?.client.purge(&[]).await?;
+            let keep: &[String] = if dirname == DEFAULT_DIRECTORY { &self.input_keys } else { &[] };
+            self.open_key_value_store(&StorageIdentifier::Alias(dirname)).await?.client.purge(keep).await?;
         }
         for dirname in self.run_scoped_directories(StorageKind::Dataset).await {
             self.open_dataset(&StorageIdentifier::Alias(dirname)).await?.client.purge().await?;

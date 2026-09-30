@@ -135,6 +135,34 @@ async fn purge_empties_run_scoped_storages_only() {
 }
 
 #[tokio::test]
+async fn input_keys_are_adopted_and_kept_on_purge() {
+    let dir = tempfile::tempdir().unwrap();
+    let default = dir.path().join("key_value_stores/default");
+    std::fs::create_dir_all(&default).unwrap();
+    std::fs::write(default.join("INPUT.json"), r#"{"start":"https://crawlee.dev"}"#).unwrap();
+    std::fs::write(default.join("CUSTOM_INPUT"), "raw").unwrap();
+    std::fs::write(default.join("OTHER.json"), "{}").unwrap();
+
+    let backend = FileSystemStorageBackend::new(dir.path()).with_input_keys(["INPUT", "CUSTOM_INPUT"]);
+    backend.purge().await.unwrap();
+    let store = KeyValueStore::open(&backend, &StorageIdentifier::Default).await.unwrap();
+
+    // `INPUT.json` is the record `INPUT`, not `INPUT.json`, and a bare file keeps its bytes.
+    assert_eq!(store.get_value::<Value>("INPUT").await.unwrap(), Some(json!({ "start": "https://crawlee.dev" })));
+    let custom = store.get_record("CUSTOM_INPUT").await.unwrap().unwrap();
+    assert_eq!((&custom.value[..], custom.content_type.as_deref()), (&b"raw"[..], Some("application/octet-stream")));
+    let keys: Vec<String> = store.keys(None).await.unwrap().into_iter().map(|item| item.key).collect();
+    assert_eq!(keys, ["CUSTOM_INPUT", "INPUT"], "everything else was purged");
+
+    // Only the default store treats them as input.
+    let other = KeyValueStore::open(&backend, &StorageIdentifier::alias("other")).await.unwrap();
+    other.set_value("INPUT", &json!(1)).await.unwrap();
+    backend.purge().await.unwrap();
+    assert!(!other.record_exists("INPUT").await.unwrap());
+    assert!(store.record_exists("INPUT").await.unwrap());
+}
+
+#[tokio::test]
 async fn storages_are_cached_and_found_by_id() {
     let dir = tempfile::tempdir().unwrap();
     let backend = FileSystemStorageBackend::new(dir.path());

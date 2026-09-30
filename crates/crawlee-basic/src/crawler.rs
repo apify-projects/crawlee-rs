@@ -208,7 +208,8 @@ where
         self
     }
 
-    /// Storage (and later other services) of this crawler. Defaults to [`Services::global`].
+    /// Configuration and storage of this crawler. Defaults to [`Services::global`]: storages
+    /// under `./storage` (or `CRAWLEE_STORAGE_DIR`), purged when the first crawler starts.
     pub fn services(mut self, services: Services) -> Self {
         self.services = Some(services);
         self
@@ -265,6 +266,8 @@ where
         inner
             .shared
             .get_or_try_init(|| async {
+                // Before anything is opened, so the storages this crawler uses start empty.
+                inner.services.purge_on_start().await?;
                 let request_manager: Arc<dyn RequestManager> = match &inner.request_manager {
                     Some(manager) => manager.clone(),
                     None => Arc::new(inner.services.open_request_queue(&StorageIdentifier::Default).await?),
@@ -362,8 +365,12 @@ where
         self.inner.statistics.start();
         tracing::info!(max_concurrency = self.inner.options.max_concurrency, "Starting the crawler.");
 
-        let result = self.task_loop(&shared).await;
+        let mut result = self.task_loop(&shared).await;
         self.inner.statistics.finish();
+        if let Err(err) = self.inner.services.storage.teardown().await {
+            tracing::warn!("Failed to tear down the storage: {err}");
+            result = result.and(Err(err.into()));
+        }
         let stats = self.inner.statistics.snapshot();
 
         match result {

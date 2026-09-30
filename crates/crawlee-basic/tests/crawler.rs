@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crawlee_basic::{BasicContext, BasicCrawler, Router};
 use crawlee_core::errors::{CriticalError, NonRetryableError, RetryRequestError, SessionError};
-use crawlee_core::{Request, Services};
+use crawlee_core::{Configuration, Request, Services};
 
 fn services() -> Services {
     Services::in_memory()
@@ -333,4 +333,45 @@ async fn export_data_writes_json_and_jsonl() {
 
     assert!(crawler.export_data(dir.join("results.csv")).await.is_err());
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[tokio::test]
+async fn file_system_storage_is_purged_once_per_process() {
+    let dir = tempfile::tempdir().unwrap();
+    let configuration = || Configuration { storage_dir: dir.path().to_owned(), ..Configuration::default() };
+    let crawl = |services: Services, url: &'static str| async move {
+        let crawler = BasicCrawler::builder()
+            .services(services)
+            .request_handler(|ctx: BasicContext| async move {
+                ctx.push_data(&json!({ "url": ctx.request().url }))?;
+                Ok(())
+            })
+            .build()
+            .unwrap();
+        crawler.run([url]).await.unwrap();
+    };
+    let files = || {
+        let mut names: Vec<String> = std::fs::read_dir(dir.path().join("datasets/default"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    };
+
+    let services = Services::from_configuration(configuration());
+    crawl(services.clone(), "https://a.dev/1").await;
+    assert_eq!(files(), ["000000001.json", "__metadata__.json"]);
+
+    // A second crawler of the same process adds to the storages of the first one.
+    crawl(services, "https://a.dev/2").await;
+    assert_eq!(files(), ["000000001.json", "000000002.json", "__metadata__.json"]);
+
+    // A new process starts over: the previous run's storages are purged.
+    crawl(Services::from_configuration(configuration()), "https://a.dev/1").await;
+    assert_eq!(files(), ["000000001.json", "__metadata__.json"]);
+    let item: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("datasets/default/000000001.json")).unwrap())
+            .unwrap();
+    assert_eq!(item, json!({ "url": "https://a.dev/1" }));
 }

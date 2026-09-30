@@ -2,6 +2,8 @@
 
 pub mod backend;
 pub mod dataset;
+#[cfg(feature = "fs-storage")]
+pub mod file_system;
 pub mod key_value_store;
 pub mod memory;
 pub mod request_queue;

@@ -2,3 +2,4 @@
 **/*.rs.bk
 /storage
 /templates/*/Cargo.lock
+/integrations/*/target

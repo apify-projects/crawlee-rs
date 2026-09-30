@@ -4,8 +4,9 @@ A port of [Crawlee](https://crawlee.dev) to Rust, focused on what Rust is better
 JavaScript for crawling: **fast HTTP crawling, HTML parsing and JSON processing**. It keeps
 Crawlee's architecture and behavior; the JavaScript and Python versions remain the reference.
 
-> Status: first milestone. `BasicCrawler`, `HttpCrawler` and `HtmlCrawler` work end to end, with
-> in-memory storage. See [What's not there yet](#whats-not-there-yet).
+> Status: early. `BasicCrawler`, `HttpCrawler` and `HtmlCrawler` work end to end, and storage is
+> written to `./storage` in the same format as Crawlee for JS and Python. See
+> [What's not there yet](#whats-not-there-yet).
 
 ```rust
 use crawlee::{EnqueueLinksOptions, HtmlContext, HtmlCrawler};
@@ -74,10 +75,33 @@ duplicates). Concurrency is fixed, and storage is in memory.
 |---|---|---|
 | `crawlee` | `crawlee` | Re-exports everything below |
 | `crawlee-utils` | `@crawlee/utils`, `@apify/utilities` | `normalize_url`, enqueue strategies, public-suffix domains, glob/regex URL filters, streaming link extraction (`lol_html`), HTML attribute entity decoding, charset prescan |
-| `crawlee-core` | `@crawlee/core`, `@crawlee/types` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the in-memory backend, request-scoped `StorageTransaction`, `Services` |
+| `crawlee-core` | `@crawlee/core`, `@crawlee/types`, `@crawlee/fs-storage` | `Request` (with the JS wire format), `Dataset`, `KeyValueStore`, `RequestQueue`, the 4-trait `StorageBackend` contract, the file-system and in-memory backends, request-scoped `StorageTransaction`, `Configuration` (`CRAWLEE_*` variables, `crawlee.json`), `Services` |
 | `crawlee-http-client` | `@crawlee/http-client` | The `HttpClient` / `Transport` traits, the shared redirect and cookie logic, a reqwest transport |
 | `crawlee-basic` | `@crawlee/basic` | `BasicCrawler`: task loop, retries and error classification, sessions and proxies, router, statistics, `enqueue_urls` filtering, the typed context pipeline |
 | `crawlee-http` | `@crawlee/http`, `@crawlee/cheerio` | `HttpCrawler` (typed JSON via serde), `HtmlCrawler` (lazy DOM, streaming `enqueue_links`), body decoding |
+| `crawlee-impit` ([integrations/](integrations/crawlee-impit)) | `@crawlee/impit-client` | A transport with browser TLS and HTTP/2 fingerprints. It is kept outside the workspace because impit needs patched dependencies; see its [README](integrations/crawlee-impit/README.md) |
+
+## Storage
+
+Storage works as in Crawlee for JS. By default, crawlers write to `./storage`:
+
+```text
+storage/
+  datasets/default/000000001.json, ...
+  key_value_stores/default/<key>, <key>.__metadata__.json
+  request_queues/default/<hash>.json
+```
+
+- **Shared format.** The format comes from
+  [crawlee-storage](https://github.com/apify/crawlee-storage), the Rust core behind the
+  file-system storage of Crawlee for JS and Python. Each of the three reads what the others wrote.
+- **Purging.** When the first crawler of a process starts, the default storages and the
+  unnamed (aliased) ones are emptied. Named storages are kept.
+- **Restarts.** A request queue keeps its handled requests across runs. With
+  `CRAWLEE_PURGE_ON_START=false`, a crawl resumes where it stopped.
+- **Settings:** `CRAWLEE_STORAGE_DIR`, `CRAWLEE_PURGE_ON_START`, `CRAWLEE_PERSIST_STORAGE`
+  (`false` keeps everything in memory), or the same keys in `crawlee.json`.
+- **In code:** `Services::from_configuration(...)`, or `Services::in_memory()` for tests.
 
 ## Design notes
 
@@ -133,19 +157,16 @@ to `conformance/golden`. `crates/crawlee/tests/golden.rs` replays all of them ag
 
 These are planned in this order, following `docs/plan.md`:
 
-1. **File-system storage backend**, reusing the Rust core of `@crawlee/fs-storage-native`.
-2. **`impit` transport** for browser TLS and HTTP/2 impersonation. The `impit` crate is not
-   published on crates.io yet.
-3. **`ConcurrencySystem` / autoscaling.** The pool currently runs at a fixed `max_concurrency`.
-4. **Events and state persistence:** `EventManager`, `RecoverableState`, persisting sessions and
+1. **`ConcurrencySystem` / autoscaling.** The pool currently runs at a fixed `max_concurrency`.
+2. **Events and state persistence:** `EventManager`, `RecoverableState`, persisting sessions and
    statistics, `use_state`.
-5. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
+3. **Request sources:** `RequestList`, `SitemapRequestLoader`, `ThrottlingRequestManager`, and
    `robots.txt`.
-6. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
+4. **Remaining context and crawler options:** `extend_context`, `extend_timeout`,
    `skip_navigation` in `HttpCrawler`, `max_requests_per_minute`.
-7. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
+5. **Differential scenario runner** (level 3 of the conformance plan): the same crawl run by both
    implementations against the fixture server, comparing their outputs.
-8. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
+6. **Later:** an Apify SDK crate on top of the Rust `apify-client`; browser and adaptive crawlers.
 
 ## Development
 

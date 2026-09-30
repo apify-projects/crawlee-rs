@@ -15,6 +15,7 @@ crawlee-http-client.workspace = true
 crawlee-utils.workspace = true
 futures.workspace = true
 parking_lot.workspace = true
+tempfile.workspace = true
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,6 +27,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 parking_lot.workspace = true
+tempfile.workspace = true
 serde = { workspace = true }
 url.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }

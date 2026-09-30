@@ -37,7 +37,10 @@ pub use crawlee_basic::{
 pub use crawlee_core::errors::{
     CriticalError, NonRetryableError, RequestThrottledError, RetryRequestError, SessionError,
 };
-pub use crawlee_core::{Dataset, EnqueueStrategy, KeyValueStore, Request, RequestQueue, Services, StorageIdentifier};
+pub use crawlee_core::{
+    Configuration, Dataset, EnqueueStrategy, KeyValueStore, Request, RequestManager, RequestQueue, Services,
+    StorageIdentifier,
+};
 pub use crawlee_http::{Document, HtmlContext, HtmlCrawler, HttpContext, HttpCrawler, HttpCrawlerOptions};
 
 /// The URL type used throughout the API (re-exported from the `url` crate).

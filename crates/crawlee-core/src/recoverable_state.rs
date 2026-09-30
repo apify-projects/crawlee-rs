@@ -142,20 +142,15 @@ impl<S: PersistedState> RecoverableState<S> {
         inner.store.get_or_try_init(|| inner.services.open_key_value_store(&inner.store_identifier)).await
     }
 
-    /// Loads the saved record (once) and starts saving on every `PersistState` event.
+    /// Loads the saved record (once), then starts saving on every `PersistState` event.
     pub async fn initialize(&self) -> StorageResult<()> {
         if self.inner.initialized.swap(true, Ordering::AcqRel) || !self.inner.persistence_enabled {
             return Ok(());
         }
         let store = self.store().await?;
 
-        let this = self.clone();
-        let id = self.inner.services.events.on(EventKind::PersistState, move |_| {
-            let this = this.clone();
-            async move { this.persist_quietly().await }
-        });
-        *self.inner.listener.lock() = Some(id);
-
+        // Load first, then listen: an event arriving in between would otherwise save the
+        // initial state over the record before it is read.
         if !self.inner.loaded.swap(true, Ordering::AcqRel) {
             let record: Option<Value> = tokio::time::timeout(PERSISTENCE_TIMEOUT, store.get_value(&self.inner.key))
                 .await
@@ -166,6 +161,13 @@ impl<S: PersistedState> RecoverableState<S> {
                 tracing::warn!(key = %self.inner.key, "Ignoring the saved state, which could not be restored: {err}");
             }
         }
+
+        let this = self.clone();
+        let id = self.inner.services.events.on(EventKind::PersistState, move |_| {
+            let this = this.clone();
+            async move { this.persist_quietly().await }
+        });
+        *self.inner.listener.lock() = Some(id);
         Ok(())
     }
 
@@ -263,6 +265,61 @@ mod tests {
         assert_eq!(store.get_value::<Counter>("COUNTER").await.unwrap(), Some(Counter { count: 6 }));
         state.reset_store().await.unwrap();
         assert!(!store.record_exists("COUNTER").await.unwrap());
+    }
+
+    /// A key-value store in which a `PersistState` event arrives while a record is being read,
+    /// as the first periodic event of an `EventManager` can.
+    struct EventDuringRead {
+        inner: Arc<dyn crate::storage::backend::KeyValueStoreBackend>,
+        events: crate::EventManager,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::storage::backend::KeyValueStoreBackend for EventDuringRead {
+        async fn get_metadata(&self) -> StorageResult<crate::storage::backend::KeyValueStoreInfo> {
+            self.inner.get_metadata().await
+        }
+        async fn drop_storage(&self) -> StorageResult<()> {
+            self.inner.drop_storage().await
+        }
+        async fn purge(&self) -> StorageResult<()> {
+            self.inner.purge().await
+        }
+        async fn get_value(&self, key: &str) -> StorageResult<Option<crate::storage::backend::KeyValueStoreRecord>> {
+            self.events.emit(crate::events::Event::PersistState { is_migrating: false });
+            self.events.wait_for_all_listeners_to_complete().await;
+            self.inner.get_value(key).await
+        }
+        async fn set_value(&self, record: crate::storage::backend::KeyValueStoreRecord) -> StorageResult<()> {
+            self.inner.set_value(record).await
+        }
+        async fn delete_value(&self, key: &str) -> StorageResult<()> {
+            self.inner.delete_value(key).await
+        }
+        async fn list_keys(
+            &self,
+            options: crate::storage::backend::KeyValueStoreListKeysOptions,
+        ) -> StorageResult<crate::storage::backend::KeyValueStoreListKeysResult> {
+            self.inner.list_keys(options).await
+        }
+        async fn record_exists(&self, key: &str) -> StorageResult<bool> {
+            self.inner.record_exists(key).await
+        }
+    }
+
+    #[tokio::test]
+    async fn an_event_during_loading_does_not_overwrite_the_saved_record() {
+        let services = Services::in_memory();
+        let store = services.open_key_value_store(&StorageIdentifier::Default).await.unwrap();
+        store.set_value("COUNTER", &Counter { count: 5 }).await.unwrap();
+
+        let racing = Arc::new(EventDuringRead { inner: store.backend().clone(), events: services.events.clone() });
+        let state = RecoverableState::new(&services, "COUNTER", Arc::new(SerdeState::new(Counter::default)), true);
+        state.inner.store.set(KeyValueStore::from_backend(racing)).unwrap();
+        state.initialize().await.unwrap();
+
+        assert_eq!(state.state().lock().count, 5);
+        assert_eq!(store.get_value::<Counter>("COUNTER").await.unwrap(), Some(Counter { count: 5 }));
     }
 
     #[tokio::test]

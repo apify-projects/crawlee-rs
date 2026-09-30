@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use parking_lot::Mutex;
@@ -28,6 +28,7 @@ use crate::configuration::Configuration;
 use crate::system_info::{SystemInfo, SystemInfoSampler};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum EventKind {
     PersistState,
     SystemInfo,
@@ -35,6 +36,8 @@ pub enum EventKind {
     Aborting,
     Exit,
     StatusMessage,
+    /// Every [`Event::Custom`], whatever its name.
+    Custom,
 }
 
 /// Log level of a [`StatusMessage`].
@@ -57,6 +60,7 @@ pub struct StatusMessage {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Event {
     /// Save state now. `is_migrating` is set when the process is about to move to another host.
     PersistState {
@@ -69,6 +73,12 @@ pub enum Event {
     Aborting,
     Exit,
     StatusMessage(StatusMessage),
+    /// An event crawlee-rs does not model, such as one of the platform events an Apify SDK
+    /// relays. Listeners of [`EventKind::Custom`] get all of them and match on `name`.
+    Custom {
+        name: String,
+        data: serde_json::Value,
+    },
 }
 
 impl Event {
@@ -80,6 +90,7 @@ impl Event {
             Event::Aborting => EventKind::Aborting,
             Event::Exit => EventKind::Exit,
             Event::StatusMessage(_) => EventKind::StatusMessage,
+            Event::Custom { .. } => EventKind::Custom,
         }
     }
 }
@@ -111,6 +122,8 @@ struct Inner {
     in_flight: AtomicUsize,
     idle: Notify,
     intervals: Mutex<Option<JoinHandle<()>>>,
+    /// Set by `stop_periodic_persist_state`: periodic `PersistState` events stop.
+    persist_state_stopped: AtomicBool,
     persist_state_interval: Duration,
     system_info: Option<SystemInfoOptions>,
 }
@@ -136,6 +149,7 @@ impl EventManager {
                 in_flight: AtomicUsize::new(0),
                 idle: Notify::new(),
                 intervals: Mutex::new(None),
+                persist_state_stopped: AtomicBool::new(false),
                 persist_state_interval,
                 system_info,
             }),
@@ -255,7 +269,11 @@ impl EventManager {
 
         loop {
             tokio::select! {
-                _ = persist.tick() => self.emit(Event::PersistState { is_migrating: false }),
+                _ = persist.tick() => {
+                    if !self.inner.persist_state_stopped.load(Ordering::Acquire) {
+                        self.emit(Event::PersistState { is_migrating: false });
+                    }
+                }
                 Some(sampler) = async {
                     match &mut sampler {
                         Some((sampler, interval)) => {
@@ -271,6 +289,12 @@ impl EventManager {
                 }
             }
         }
+    }
+
+    /// Stops the periodic `PersistState` events, keeping the others. The platform does this when
+    /// a run is about to migrate: state is saved once more (with `is_migrating`), then no more.
+    pub fn stop_periodic_persist_state(&self) {
+        self.inner.persist_state_stopped.store(true, Ordering::Release);
     }
 
     /// Stops the periodic events, emits a final `PersistState` and waits for all listeners.
@@ -337,5 +361,37 @@ mod tests {
         events.close().await;
         assert_eq!(persisted.load(Ordering::SeqCst), 2, "close() waits for the final PersistState");
         assert!(!events.is_initialized());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn custom_events_and_stopping_periodic_persist_state() {
+        let events = EventManager::new(Duration::from_secs(10));
+        let persisted = Arc::new(AtomicUsize::new(0));
+        let counter = persisted.clone();
+        events.on(EventKind::PersistState, move |_| {
+            counter.fetch_add(1, Ordering::SeqCst);
+            async {}
+        });
+        let custom = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        let log = custom.clone();
+        events.on(EventKind::Custom, move |event| {
+            if let Event::Custom { name, .. } = event {
+                log.lock().push(name);
+            }
+            async {}
+        });
+
+        events.init().await;
+        tokio::time::sleep(Duration::from_secs(15)).await;
+        assert_eq!(persisted.load(Ordering::SeqCst), 2, "right away and after 10 s");
+        events.stop_periodic_persist_state();
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        assert_eq!(persisted.load(Ordering::SeqCst), 2);
+
+        events.emit(Event::Custom { name: "cpuInfo".into(), data: serde_json::json!({ "isCpuOverloaded": false }) });
+        events.wait_for_all_listeners_to_complete().await;
+        assert_eq!(*custom.lock(), ["cpuInfo"]);
+        events.close().await;
+        assert_eq!(persisted.load(Ordering::SeqCst), 3, "close() still saves once more");
     }
 }

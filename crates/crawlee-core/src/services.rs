@@ -94,6 +94,12 @@ impl Services {
         GLOBAL.get_or_init(|| Services::from_configuration(Configuration::from_env()))
     }
 
+    /// Whether the process-wide services exist yet (read or set). An SDK that installs its own
+    /// services checks this to detect storages used before it was initialized.
+    pub fn is_global_set() -> bool {
+        GLOBAL.get().is_some()
+    }
+
     /// Sets the process-wide services. Fails once they have been read or set.
     pub fn set_global(services: Services) -> Result<(), ServiceConflictError> {
         GLOBAL.set(services).map_err(|_| ServiceConflictError)

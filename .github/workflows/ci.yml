@@ -45,3 +45,23 @@ jobs:
           workspaces: templates/${{ matrix.template }}
       - run: ./templates/check-manifests.sh
       - run: cargo clippy --manifest-path templates/${{ matrix.template }}/Cargo.toml
+
+  impit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/crawlee-impit
+    env:
+      # Overrides the job-wide flags, so the cfg from .cargo/config.toml has to be repeated.
+      RUSTFLAGS: -D warnings --cfg reqwest_unstable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: integrations/crawlee-impit
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked
+      - run: cargo test --locked

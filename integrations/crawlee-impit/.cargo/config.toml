@@ -1,0 +1,3 @@
+# Required by impit, which uses reqwest's unstable HTTP/3 support.
+[build]
+rustflags = ["--cfg", "reqwest_unstable"]

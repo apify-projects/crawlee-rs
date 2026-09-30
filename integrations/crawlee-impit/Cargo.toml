@@ -1,0 +1,36 @@
+[package]
+name = "crawlee-impit"
+description = "impit transport for crawlee-rs: browser-like TLS and HTTP/2 fingerprints (Chrome, Firefox, Safari)."
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/apify-projects/crawlee-rs"
+publish = false
+
+# impit needs patched `rustls`, `h2`, `tower-http` and `hyper-util` and `--cfg reqwest_unstable`
+# (see .cargo/config.toml). Patches only apply in the workspace that declares them, so this crate
+# is its own workspace, and so is every project that uses it (see README.md).
+[workspace]
+
+[dependencies]
+async-trait = "0.1"
+bytes = "1"
+crawlee-http-client = { path = "../../crates/crawlee-http-client", default-features = false }
+http = "1"
+impit = { git = "https://github.com/apify/impit.git", rev = "f4e05a053ff1fd6f2f4daa43482d9105fd952130" }
+parking_lot = "0.12"
+reqwest = { version = "0.13", default-features = false }
+url = "2"
+
+[dev-dependencies]
+anyhow = "1"
+crawlee = { path = "../../crates/crawlee" }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[patch.crates-io]
+h2 = { git = "https://github.com/apify/h2", rev = "7f393a728a8db07cabb1b78d2094772b33943b9a" }
+rustls = { git = "https://github.com/apify/rustls", rev = "23b2c17427c095b768e22ccf0dadb97266860cf1" }
+tower-http = { git = "https://github.com/apify/tower-http", rev = "f9efc0d9193e774d33aedc1022b922efefc22052" }
+hyper-util = { git = "https://github.com/apify/hyper-util", rev = "9b7795dfd7158fc55e7c84b65bf1dae1d2dea67d" }

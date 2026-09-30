@@ -63,5 +63,9 @@ jobs:
         with:
           workspaces: integrations/crawlee-impit
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked
-      - run: cargo test --locked
+      # Not `--locked`: new dependencies of the main crates are added to the lockfile, while
+      # its existing entries (the hyper, reqwest and h2 versions matching the forks) are kept.
+      - run: cargo clippy --all-targets
+      - run: cargo test
+      - name: The patched h2 is used
+        run: cargo tree -i h2 --edges normal | head -1 | grep -q "github.com/apify/h2"

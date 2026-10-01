@@ -2,9 +2,12 @@
 //!
 //! One `reqwest::Client` is kept per (proxy, TLS verification) combination, so connections,
 //! TLS sessions and HTTP/2 streams are reused across requests instead of being set up per call.
+//! Clients share one TLS configuration, and the clients of proxies no longer used are dropped:
+//! without a session pool, every request has a proxy URL of its own.
 
 use std::collections::HashMap;
-use std::time::Duration;
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
@@ -20,9 +23,38 @@ pub const DEFAULT_USER_AGENT: &str =
 
 type ClientKey = (Option<String>, bool);
 
+struct CachedClient {
+    client: reqwest::Client,
+    last_used: Instant,
+}
+
+/// The TLS configuration of every client, built once. reqwest builds one per client, and with it
+/// a certificate verifier that loads the system's root certificates again.
+fn tls_config() -> Result<&'static rustls::ClientConfig, HttpClientError> {
+    static CONFIG: OnceLock<Result<rustls::ClientConfig, String>> = OnceLock::new();
+    CONFIG
+        .get_or_init(|| {
+            // As reqwest: a crypto provider installed by the application, else aws-lc-rs.
+            let provider = rustls::crypto::CryptoProvider::get_default()
+                .cloned()
+                .unwrap_or_else(|| Arc::new(rustls::crypto::aws_lc_rs::default_provider()));
+            let verifier = rustls_platform_verifier::Verifier::new(provider.clone()).map_err(|err| err.to_string())?;
+            let mut config = rustls::ClientConfig::builder_with_provider(provider)
+                .with_safe_default_protocol_versions()
+                .map_err(|err| err.to_string())?
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(verifier))
+                .with_no_client_auth();
+            config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+            Ok(config)
+        })
+        .as_ref()
+        .map_err(|err| HttpClientError::Other(format!("TLS configuration: {err}")))
+}
+
 /// `reqwest`-based transport with transparent gzip, brotli and deflate decompression.
 pub struct ReqwestTransport {
-    clients: Mutex<HashMap<ClientKey, reqwest::Client>>,
+    clients: Mutex<HashMap<ClientKey, CachedClient>>,
     connect_timeout: Duration,
     pool_idle_timeout: Duration,
 }
@@ -48,18 +80,31 @@ impl ReqwestTransport {
         }
     }
 
+    /// How long idle connections stay open (90 seconds by default). Clients of proxies not used
+    /// for that long are dropped.
+    pub fn with_pool_idle_timeout(mut self, timeout: Duration) -> Self {
+        self.pool_idle_timeout = timeout;
+        self
+    }
+
     fn client(&self, options: &TransportOptions) -> Result<reqwest::Client, HttpClientError> {
         let key = (options.proxy_url.as_ref().map(|u| u.to_string()), options.ignore_tls_errors);
-        if let Some(client) = self.clients.lock().get(&key) {
-            return Ok(client.clone());
+        let now = Instant::now();
+        if let Some(cached) = self.clients.lock().get_mut(&key) {
+            cached.last_used = now;
+            return Ok(cached.client.clone());
         }
 
         let mut builder = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(self.connect_timeout)
             .pool_idle_timeout(self.pool_idle_timeout)
-            .tcp_nodelay(true)
-            .tls_danger_accept_invalid_certs(options.ignore_tls_errors);
+            .tcp_nodelay(true);
+        builder = if options.ignore_tls_errors {
+            builder.tls_danger_accept_invalid_certs(true)
+        } else {
+            builder.tls_backend_preconfigured(tls_config()?.clone())
+        };
         // Without an explicit proxy, the system proxy settings (`HTTPS_PROXY`, `NO_PROXY`, ...)
         // apply, as with curl.
         if let Some(proxy) = &options.proxy_url {
@@ -68,7 +113,12 @@ impl ReqwestTransport {
         }
         let client = builder.build().map_err(|err| HttpClientError::Other(err.to_string()))?;
 
-        Ok(self.clients.lock().entry(key).or_insert(client).clone())
+        let mut clients = self.clients.lock();
+        // Clients idle for longer than their connections are kept open have nothing left to
+        // reuse: the session that used the proxy was retired, or it was a single request.
+        let idle_timeout = self.pool_idle_timeout;
+        clients.retain(|_, cached| now.duration_since(cached.last_used) < idle_timeout);
+        Ok(clients.entry(key).or_insert(CachedClient { client, last_used: now }).client.clone())
     }
 }
 
@@ -163,6 +213,36 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         Url::parse(&format!("http://{addr}/")).unwrap()
+    }
+
+    fn via_proxy(n: usize) -> TransportOptions {
+        let proxy = Url::parse(&format!("http://session-{n}:secret@proxy.example:8000")).unwrap();
+        TransportOptions { proxy_url: Some(proxy), ..Default::default() }
+    }
+
+    /// Without a session pool every request has a proxy URL of its own: the clients of the URLs
+    /// that are no longer used must not pile up.
+    #[test]
+    fn clients_of_idle_proxies_are_dropped() {
+        // Loading the root certificates for the shared TLS configuration takes a while once.
+        tls_config().unwrap();
+        let transport = ReqwestTransport::new().with_pool_idle_timeout(Duration::from_millis(300));
+        for n in 0..20 {
+            transport.client(&via_proxy(n)).unwrap();
+        }
+        assert_eq!(transport.clients.lock().len(), 20);
+        std::thread::sleep(Duration::from_millis(400));
+        transport.client(&via_proxy(20)).unwrap();
+        assert_eq!(transport.clients.lock().len(), 1, "only the client just made is left");
+    }
+
+    /// Clients share one TLS configuration (and so one certificate verifier with its root
+    /// store), instead of loading the system's certificates once per proxy URL.
+    #[test]
+    fn clients_share_the_tls_configuration() {
+        let first = tls_config().unwrap() as *const rustls::ClientConfig;
+        assert_eq!(first, tls_config().unwrap() as *const _);
+        assert_eq!(tls_config().unwrap().alpn_protocols, [b"h2".to_vec(), b"http/1.1".to_vec()]);
     }
 
     #[tokio::test]

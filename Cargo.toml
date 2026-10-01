@@ -41,6 +41,10 @@ quick-xml = "0.42"
 rand = "0.9"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "gzip", "brotli", "deflate", "socks"] }
+# The TLS configuration reqwest builds, made once and shared by every client (see crawlee-http-client).
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "aws_lc_rs"] }
+# The range of reqwest, so that both use one version.
+rustls-platform-verifier = ">=0.6, <0.8"
 scraper = { version = "0.27", features = ["atomic"] }
 selectors = "0.26"
 serde = { version = "1", features = ["derive"] }

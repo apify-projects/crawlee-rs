@@ -492,6 +492,8 @@ dependencies = [
  "http",
  "parking_lot",
  "reqwest",
+ "rustls",
+ "rustls-platform-verifier",
  "serde_json",
  "thiserror",
  "tokio",

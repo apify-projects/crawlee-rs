@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = ["reqwest"]
-reqwest = ["dep:reqwest"]
+reqwest = ["dep:reqwest", "dep:rustls", "dep:rustls-platform-verifier"]
 
 [dependencies]
 async-trait.workspace = true
@@ -19,6 +19,8 @@ cookie_store.workspace = true
 http.workspace = true
 parking_lot.workspace = true
 reqwest = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-platform-verifier = { workspace = true, optional = true }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

@@ -146,6 +146,11 @@ fn error_chain(err: &dyn std::error::Error) -> String {
 
 #[async_trait]
 impl Transport for ReqwestTransport {
+    fn release_proxy(&self, proxy_url: &url::Url) {
+        let proxy_url = proxy_url.as_str();
+        self.clients.lock().retain(|(proxy, _), _| proxy.as_deref() != Some(proxy_url));
+    }
+
     async fn fetch(&self, request: HttpRequest, options: &TransportOptions) -> Result<HttpResponse, HttpClientError> {
         let client = self.client(options)?;
         let via_proxy = options.proxy_url.is_some();
@@ -234,6 +239,21 @@ mod tests {
         std::thread::sleep(Duration::from_millis(400));
         transport.client(&via_proxy(20)).unwrap();
         assert_eq!(transport.clients.lock().len(), 1, "only the client just made is left");
+    }
+
+    /// A proxy that nothing will use again (the session of a crawler without a session pool
+    /// finished its attempt) gives its client up right away.
+    #[test]
+    fn a_released_proxy_drops_its_client() {
+        let transport = ReqwestTransport::new();
+        transport.client(&via_proxy(0)).unwrap();
+        transport.client(&via_proxy(1)).unwrap();
+        transport.release_proxy(via_proxy(0).proxy_url.as_ref().unwrap());
+        let clients = transport.clients.lock();
+        assert_eq!(clients.len(), 1);
+        assert!(
+            clients.keys().all(|(proxy, _)| proxy.as_deref() == Some("http://session-1:secret@proxy.example:8000/"))
+        );
     }
 
     /// Clients share one TLS configuration (and so one certificate verifier with its root

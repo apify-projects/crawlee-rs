@@ -602,3 +602,78 @@ async fn without_a_session_pool_every_attempt_has_a_proxy_of_its_own() {
         .count();
     assert_eq!(pools, 0, "no session pool is saved");
 }
+
+/// Answers every request, and records the proxies given up.
+#[derive(Default)]
+struct RecordingClient {
+    released: Mutex<Vec<String>>,
+}
+
+#[async_trait::async_trait]
+impl crawlee_http_client::HttpClient for RecordingClient {
+    async fn send_request(
+        &self,
+        request: crawlee_http_client::HttpRequest,
+        _: &crawlee_http_client::SendOptions,
+    ) -> Result<crawlee_http_client::HttpResponse, crawlee_http_client::HttpClientError> {
+        Ok(crawlee_http_client::HttpResponse {
+            status: http::StatusCode::OK,
+            headers: http::HeaderMap::new(),
+            url: request.url,
+            body: Default::default(),
+            redirects: Vec::new(),
+        })
+    }
+
+    fn release_proxy(&self, proxy_url: &url::Url) {
+        self.released.lock().push(proxy_url.to_string());
+    }
+}
+
+#[tokio::test]
+async fn without_a_session_pool_the_proxy_of_an_attempt_is_released_after_it() {
+    for use_session_pool in [false, true] {
+        let client = Arc::new(RecordingClient::default());
+        let used = Arc::new(Mutex::new(Vec::new()));
+        let (log, recorder) = (used.clone(), client.clone());
+        let crawler = BasicCrawler::builder()
+            .services(services())
+            .use_session_pool(use_session_pool)
+            .proxy_configuration(Arc::new(NumberedProxies(AtomicUsize::new(0))))
+            .http_client(client.clone())
+            .max_request_retries(1)
+            .request_handler(move |ctx: BasicContext| {
+                let (log, recorder) = (log.clone(), recorder.clone());
+                async move {
+                    let proxy = ctx.proxy_info().unwrap().url.to_string();
+                    // Several calls of one attempt share its proxy, which is not released meanwhile.
+                    for _ in 0..2 {
+                        let url = url::Url::parse(&ctx.request().url)?;
+                        ctx.send_request(crawlee_http_client::HttpRequest::get(url)).await?;
+                    }
+                    assert!(!recorder.released.lock().contains(&proxy), "released during the attempt");
+                    let first_attempt = ctx.request().retry_count == 0;
+                    log.lock().push(proxy);
+                    if first_attempt {
+                        anyhow::bail!("blocked");
+                    }
+                    Ok(())
+                }
+            })
+            .build()
+            .unwrap();
+
+        crawler.run(["https://a.dev/1", "https://a.dev/2"]).await.unwrap();
+
+        let mut used = used.lock().clone();
+        let mut released = client.released.lock().clone();
+        used.sort();
+        released.sort();
+        assert_eq!(used.len(), 4, "two attempts of each request");
+        if use_session_pool {
+            assert!(released.is_empty(), "pooled sessions keep their proxies: {released:?}");
+        } else {
+            assert_eq!(released, used, "each proxy released once");
+        }
+    }
+}

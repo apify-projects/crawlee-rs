@@ -121,6 +121,11 @@ fn map_error(err: ImpitError, via_proxy: bool) -> HttpClientError {
 
 #[async_trait]
 impl Transport for ImpitTransport {
+    fn release_proxy(&self, proxy_url: &url::Url) {
+        let proxy_url = proxy_url.as_str();
+        self.clients.lock().retain(|(proxy, _), _| proxy.as_deref() != Some(proxy_url));
+    }
+
     async fn fetch(&self, request: HttpRequest, options: &TransportOptions) -> Result<HttpResponse, HttpClientError> {
         let client = self.client(options)?;
         let via_proxy = options.proxy_url.is_some();

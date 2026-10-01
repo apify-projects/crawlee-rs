@@ -34,6 +34,21 @@ const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(100);
 /// How often the task loop asks the concurrency system again when it had no capacity
 /// (`maybeRunIntervalSecs`).
 const MAYBE_RUN_INTERVAL: Duration = Duration::from_millis(500);
+/// Releases the proxy of a session nothing will use again, once the attempt (with its error
+/// handlers) is over, however it ends.
+struct ReleaseProxy {
+    client: Arc<dyn HttpClient>,
+    session: Arc<Session>,
+}
+
+impl Drop for ReleaseProxy {
+    fn drop(&mut self) {
+        if let Some(proxy) = self.session.proxy_info() {
+            self.client.release_proxy(&proxy.url);
+        }
+    }
+}
+
 /// How long a migration or abort waits for running requests (`SAFE_MIGRATION_WAIT_MILLIS`).
 const SAFE_MIGRATION_WAIT: Duration = Duration::from_secs(20);
 const CRAWLEE_STATE_KEY: &str = "CRAWLEE_STATE";
@@ -828,6 +843,9 @@ where
         }
         let started = Instant::now();
         let session = self.session_for(&request);
+        // Without a session pool, nothing uses the session's proxy after this attempt.
+        let _release_proxy = (!self.inner.options.use_session_pool)
+            .then(|| ReleaseProxy { client: shared.http_client.clone(), session: session.clone() });
         let scope = RequestScope::new(shared.clone(), Some(session.clone()));
         // Fallback in case the handler leaks its context into a task that outlives it.
         let snapshot = request.clone();

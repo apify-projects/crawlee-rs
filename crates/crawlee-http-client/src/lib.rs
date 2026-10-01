@@ -111,12 +111,19 @@ impl HttpClientError {
 #[async_trait]
 pub trait HttpClient: Send + Sync {
     async fn send_request(&self, request: HttpRequest, options: &SendOptions) -> Result<HttpResponse, HttpClientError>;
+
+    /// Nothing sends through this proxy anymore (the session of a crawler without a session pool
+    /// finished its attempt): what is kept for it, such as its connections, can go.
+    fn release_proxy(&self, _proxy_url: &Url) {}
 }
 
 /// A single request/response exchange, without following redirects or handling cookies.
 #[async_trait]
 pub trait Transport: Send + Sync {
     async fn fetch(&self, request: HttpRequest, options: &TransportOptions) -> Result<HttpResponse, HttpClientError>;
+
+    /// See [`HttpClient::release_proxy`].
+    fn release_proxy(&self, _proxy_url: &Url) {}
 }
 
 /// The redirect and cookie logic of Crawlee's `BaseHttpClient`, over any [`Transport`].
@@ -220,12 +227,20 @@ impl<T: Transport> HttpClient for RedirectingClient<T> {
             None => self.send_inner(request, options).await,
         }
     }
+
+    fn release_proxy(&self, proxy_url: &Url) {
+        self.transport.release_proxy(proxy_url);
+    }
 }
 
 #[async_trait]
 impl<C: HttpClient + ?Sized> HttpClient for Arc<C> {
     async fn send_request(&self, request: HttpRequest, options: &SendOptions) -> Result<HttpResponse, HttpClientError> {
         (**self).send_request(request, options).await
+    }
+
+    fn release_proxy(&self, proxy_url: &Url) {
+        (**self).release_proxy(proxy_url);
     }
 }
 

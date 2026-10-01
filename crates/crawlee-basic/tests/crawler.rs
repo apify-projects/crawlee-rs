@@ -547,3 +547,58 @@ async fn concurrency_scales_with_the_load() {
     let (peak, desired) = peak_concurrency(true).await;
     assert_eq!((peak, desired), (1, 1), "overloaded: stays at min_concurrency");
 }
+
+/// A proxy per new session, numbered.
+struct NumberedProxies(AtomicUsize);
+
+impl crawlee_basic::ProxySource for NumberedProxies {
+    fn new_proxy_info(&self, _session_id: &str) -> Option<crawlee_basic::ProxyInfo> {
+        let n = self.0.fetch_add(1, Ordering::Relaxed);
+        Some(crawlee_basic::ProxyInfo::from_url(
+            url::Url::parse(&format!("http://session-{n}@proxy.example:8000")).unwrap(),
+        ))
+    }
+}
+
+#[tokio::test]
+async fn without_a_session_pool_every_attempt_has_a_proxy_of_its_own() {
+    let dir = tempfile::tempdir().unwrap();
+    let configuration = Configuration { storage_dir: dir.path().to_owned(), ..Configuration::default() };
+    let proxies = Arc::new(Mutex::new(Vec::new()));
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let (log, counter) = (proxies.clone(), attempts.clone());
+    let crawler = BasicCrawler::builder()
+        .services(Services::from_configuration(configuration))
+        .use_session_pool(false)
+        .proxy_configuration(Arc::new(NumberedProxies(AtomicUsize::new(0))))
+        .request_handler(move |ctx: BasicContext| {
+            let (log, counter) = (log.clone(), counter.clone());
+            async move {
+                log.lock().push(ctx.proxy_info().unwrap().url.to_string());
+                // The first attempt of each request fails, so that the retry needs a new proxy too.
+                if counter.fetch_add(1, Ordering::Relaxed) % 2 == 0 {
+                    anyhow::bail!("blocked");
+                }
+                Ok(())
+            }
+        })
+        .build()
+        .unwrap();
+
+    crawler.run(["https://a.dev/1", "https://a.dev/2", "https://a.dev/3"]).await.unwrap();
+
+    let mut proxies = proxies.lock().clone();
+    let total = proxies.len();
+    proxies.sort();
+    proxies.dedup();
+    assert!(total >= 3, "{total} attempts");
+    assert_eq!(proxies.len(), total, "no proxy is used twice");
+    assert_eq!(crawler.session_pool().usable_count() + crawler.session_pool().retired_count(), 0);
+    let pools = std::fs::read_dir(dir.path().join("key_value_stores/default"))
+        .unwrap()
+        .filter(|entry| {
+            entry.as_ref().unwrap().file_name().to_string_lossy().starts_with("CRAWLEE_SESSION_POOL_STATE_")
+        })
+        .count();
+    assert_eq!(pools, 0, "no session pool is saved");
+}

@@ -55,6 +55,10 @@ pub struct CrawlerOptions {
     /// Timeout of `send_request` calls made from handlers.
     pub send_request_timeout: Duration,
     pub session_pool: SessionPoolOptions,
+    /// Keep sessions and reuse them across requests (`useSessionPool`, default `true`). Without a
+    /// pool, every attempt gets a session of its own: a new proxy and no cookies of other
+    /// requests, as residential proxies, which do not keep their IP for long, are often used.
+    pub use_session_pool: bool,
     /// Identifies the crawler in its persisted state (`CRAWLEE_CRAWLER_STATISTICS_{id}`,
     /// `CRAWLEE_STATE_{id}`) and in status messages. Defaults to the crawler's instantiation
     /// index in the process: `"0"` for the first one.
@@ -79,6 +83,7 @@ impl Default for CrawlerOptions {
             request_handler_timeout: Duration::from_secs(60),
             send_request_timeout: Duration::from_secs(30),
             session_pool: SessionPoolOptions::default(),
+            use_session_pool: true,
             id: None,
             status_message_interval: Duration::from_secs(10),
             respect_robots_txt: None,
@@ -298,6 +303,12 @@ where
 
     pub fn session_pool_options(mut self, options: SessionPoolOptions) -> Self {
         self.options.session_pool = options;
+        self
+    }
+
+    /// See [`CrawlerOptions::use_session_pool`].
+    pub fn use_session_pool(mut self, use_session_pool: bool) -> Self {
+        self.options.use_session_pool = use_session_pool;
         self
     }
 
@@ -606,7 +617,9 @@ where
         }
         // Loads the state of a previous run, if the crawl is resuming.
         inner.statistics_state.initialize().await?;
-        inner.session_pool_state.initialize().await?;
+        if inner.options.use_session_pool {
+            inner.session_pool_state.initialize().await?;
+        }
 
         self.add_requests(requests).await?;
         inner.statistics.start();
@@ -638,7 +651,9 @@ where
         // Save the final state: the statistics and the sessions, then everything else that
         // listens to `PersistState` (such as `use_state`).
         inner.statistics_state.teardown().await;
-        inner.session_pool_state.teardown().await;
+        if inner.options.use_session_pool {
+            inner.session_pool_state.teardown().await;
+        }
         if owns_event_manager {
             events.close().await;
         } else {
@@ -789,6 +804,9 @@ where
     }
 
     fn session_for(&self, request: &Request) -> Arc<Session> {
+        if !self.inner.options.use_session_pool {
+            return self.inner.session_pool.detached_session();
+        }
         request
             .session_id()
             .and_then(|id| self.inner.session_pool.get_session_by_id(id))

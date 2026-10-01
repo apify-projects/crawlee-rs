@@ -281,6 +281,12 @@ impl SessionPool {
         Arc::new(Session::new(id, proxy, self.options.session_options.clone()))
     }
 
+    /// A new session, with a new proxy, that the pool does not keep: for crawlers without a
+    /// session pool.
+    pub fn detached_session(&self) -> Arc<Session> {
+        self.create_session()
+    }
+
     /// A session for the next request.
     pub fn get_session(&self) -> Arc<Session> {
         let mut sessions = self.sessions.lock();
